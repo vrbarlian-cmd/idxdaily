@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // Divergence threshold: p60 of |foreign net| = ~1,017 Rp bn → rounded to 1,000
 const DIVERGENCE_THRESHOLD_BN = 1000;
 

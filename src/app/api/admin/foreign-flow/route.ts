@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/admin/foreign-flow — last 10 entries (read-only, no secrets exposed)
 // POST is intentionally absent — flow data is written via CLI only (set_foreign_flow.py)
 export async function GET() {

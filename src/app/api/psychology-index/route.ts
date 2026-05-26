@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 export interface PsychologyIndexData {
   date:          string | null;  // YYYY-MM-DD, null when no data exists
   score:         number | null;  // smoothed score (displayed value)

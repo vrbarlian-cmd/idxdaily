@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/trending
 // Returns tickers ranked by article volume in the last 24h, with dominant sentiment.
 export async function GET() {

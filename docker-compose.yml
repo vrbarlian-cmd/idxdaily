@@ -1,0 +1,25 @@
+version: "3.9"
+
+# Local Postgres for development (alternative to Supabase).
+# Usage:
+#   docker compose up -d
+#   Then set DATABASE_URL=postgresql://sahamsinyal:sahamsinyal@localhost:5432/sahamsinyal in .env
+#
+# Note: Docker Desktop must be installed. See https://www.docker.com/products/docker-desktop/
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: sahamsinyal
+      POSTGRES_PASSWORD: sahamsinyal
+      POSTGRES_DB: sahamsinyal
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+
+volumes:
+  pgdata:

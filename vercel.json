@@ -1,0 +1,12 @@
+{
+  "framework": "nextjs",
+  "regions": ["sin1"],
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "build": {
+    "env": {
+      "NEXT_TELEMETRY_DISABLED": "1"
+    }
+  }
+}

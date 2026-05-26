@@ -1,0 +1,78 @@
+{
+  "_comment": "Manual overrides for tickers that cause false-positive matches in news text.",
+  "_format": {
+    "skip_symbol_tag": "Do NOT match the 4-letter code as a word in article text (it collides with common Indonesian words)",
+    "name_slugs": "Extra alias strings to match in article text (case-insensitive substring)"
+  },
+
+  "BUMI": { "skip_symbol_tag": true,  "name_slugs": ["Bumi Resources"] },
+  "DEWA": { "skip_symbol_tag": true,  "name_slugs": ["Darma Henwa"] },
+  "BULL": { "skip_symbol_tag": true,  "name_slugs": ["Buana Lintas Lautan"] },
+
+  "_common_indonesian_words": "--- Tickers whose 4-letter codes are very common Indonesian words ---",
+
+  "PADA": { "skip_symbol_tag": true,  "name_slugs": ["Personel Alih Daya"] },
+  "DAYA": { "skip_symbol_tag": true,  "name_slugs": ["Duta Intidaya"] },
+  "AKSI": { "skip_symbol_tag": true,  "name_slugs": ["Mineral Sumberdaya Mandiri"] },
+  "BAIK": { "skip_symbol_tag": true,  "name_slugs": ["Bersama Mencapai Puncak"] },
+  "KOTA": { "skip_symbol_tag": true,  "name_slugs": ["DMS Propertindo"] },
+  "AGAR": { "skip_symbol_tag": true,  "name_slugs": ["Asia Sejahtera Mina"] },
+  "LABA": { "skip_symbol_tag": true,  "name_slugs": ["Ladangbaja Murni"] },
+  "JAWA": { "skip_symbol_tag": true,  "name_slugs": ["Jaya Agra Wattie"] },
+  "SATU": { "skip_symbol_tag": true,  "name_slugs": ["Kota Satu Properti"] },
+  "UANG": { "skip_symbol_tag": true,  "name_slugs": ["Pakuan"] },
+  "BUKA": { "skip_symbol_tag": true,  "name_slugs": ["Bukalapak"] },
+  "BELI": { "skip_symbol_tag": true,  "name_slugs": ["Blibli", "Global Digital Niaga"] },
+  "WINS": { "skip_symbol_tag": true,  "name_slugs": ["Wintermar Offshore"] },
+  "BOSS": { "skip_symbol_tag": true,  "name_slugs": ["Borneo Olah Sarana Sukses"] },
+  "HERO": { "skip_symbol_tag": true,  "name_slugs": ["Hero Supermarket"] },
+  "BEST": { "skip_symbol_tag": true,  "name_slugs": ["Bekasi Fajar Industrial"] },
+  "CARE": { "skip_symbol_tag": true,  "name_slugs": ["Metro Healthcare"] },
+  "GOLD": { "skip_symbol_tag": true,  "name_slugs": ["Visi Telekomunikasi"] },
+  "NICE": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "CASH": { "skip_symbol_tag": true,  "name_slugs": ["Cashlez Worldwide"] },
+  "REAL": { "skip_symbol_tag": true,  "name_slugs": ["Repower Asia"] },
+  "LAND": { "skip_symbol_tag": true,  "name_slugs": ["Trimitra Propertindo"] },
+  "BANK": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "MAJU": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "RAYA": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "JUAL": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "BARU": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "MANA": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "AWAL": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "TIBA": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "BAGI": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "ARUS": { "skip_symbol_tag": true,  "name_slugs": [] },
+  "MASA": { "skip_symbol_tag": true,  "name_slugs": ["Multistrada Arah Sarana"] },
+
+  "_english_and_proper_noun_collisions": "--- Tickers whose codes collide with English words, train names, celebrity names, etc. ---",
+
+  "ARGO": { "skip_symbol_tag": true,  "exact_aliases": ["Argo Pantes"] },
+  "AREA": { "skip_symbol_tag": true,  "name_slugs": ["Dunia Virtual Online"] },
+  "CUAN": { "skip_symbol_tag": true,  "name_slugs": ["Petrindo Jaya Kreasi"] },
+  "DEWI": { "skip_symbol_tag": true,  "name_slugs": ["Dewi Shri Farmindo"] },
+  "HOME": { "skip_symbol_tag": true,  "name_slugs": ["Hotel Mandarine Regency"] },
+  "META": { "skip_symbol_tag": true,  "name_slugs": ["Nusantara Infrastructure"] },
+  "RAJA": { "skip_symbol_tag": true,  "name_slugs": ["Rukun Raharja"] },
+
+  "_known_good_with_extra_slugs": "--- Tickers we want AND extra brand name aliases ---",
+
+  "GOTO": { "skip_symbol_tag": false, "name_slugs": ["GoTo Gojek Tokopedia", "Gojek Tokopedia", "GoTo Group"] },
+  "MEDC": { "skip_symbol_tag": false, "name_slugs": ["Medco Energi", "MedcoEnergi"] },
+  "INCO": { "skip_symbol_tag": false, "name_slugs": ["Vale Indonesia", "PT Vale"] },
+  "ISAT": { "skip_symbol_tag": false, "name_slugs": ["Indosat Ooredoo", "Indosat"] },
+  "TLKM": { "skip_symbol_tag": false, "name_slugs": ["Telkom Indonesia", "Telekomunikasi Indonesia"] },
+  "EXCL": { "skip_symbol_tag": false, "name_slugs": ["XL Axiata"] },
+  "BBCA": { "skip_symbol_tag": false, "name_slugs": ["Bank Central Asia", "BCA"] },
+  "BBRI": { "skip_symbol_tag": false, "name_slugs": ["Bank Rakyat Indonesia", "BRI"] },
+  "BMRI": { "skip_symbol_tag": false, "name_slugs": ["Bank Mandiri"] },
+  "BBNI": { "skip_symbol_tag": false, "name_slugs": ["Bank Negara Indonesia", "BNI"] },
+
+  "_exact_alias_overrides": "--- exact_aliases replaces ALL auto-generated aliases for these tickers ---",
+
+  "BJBR": { "skip_symbol_tag": false, "exact_aliases": ["Bank BJB", "Bank Jabar Banten"] },
+  "BJTM": { "skip_symbol_tag": false, "exact_aliases": ["Bank Jatim", "Bank Jawa Timur"] },
+  "BEKS": { "skip_symbol_tag": false, "exact_aliases": ["Bank Banten"] },
+  "DPNS": { "skip_symbol_tag": false, "exact_aliases": ["Duta Pertiwi Nusantara"] },
+  "BRMS": { "skip_symbol_tag": false, "exact_aliases": ["Bumi Resources Minerals"] }
+}

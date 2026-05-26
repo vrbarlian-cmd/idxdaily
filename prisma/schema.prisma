@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Ticker {
+  id          String   @id @default(cuid())
+  symbol      String   @unique
+  name        String
+  sector      String?
+  subsector   String?
+  description String?
+  marketCap   Float?   @map("market_cap")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt      @map("updated_at")
+  news        News[]
+  mentions    TickerMention[]
+
+  @@index([symbol])
+  @@map("tickers")
+}
+
+model News {
+  id              String   @id @default(cuid())
+  tickerId        String?  @map("ticker_id")
+  ticker          Ticker?  @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  title           String
+  originalSummary String?  @default("") @map("original_summary")
+  aiSummary       String?  @map("ai_summary")
+  url             String?
+  source          String
+  publishedAt     DateTime? @map("published_at")
+
+  sentiment       String   @default("NEUTRAL")
+  impactScore     Float    @default(5.0)  @map("impact_score")
+  category        String   @default("GENERAL")
+  isEarlySignal   Boolean  @default(false) @map("is_early_signal")
+
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt      @map("updated_at")
+
+  mentions        TickerMention[]
+
+  @@index([tickerId, publishedAt])
+  @@index([sentiment])
+  @@index([impactScore])
+  @@map("articles")
+}
+
+model TickerMention {
+  articleId       String  @map("article_id")
+  tickerId        String  @map("ticker_id")
+  matchConfidence String  @default("medium") @map("match_confidence")
+  matchType       String  @default("ticker_match") @map("match_type")
+  aiSummary       String? @map("ai_summary")
+  sentiment       String? @map("sentiment")
+  impactScore     Float?  @map("impact_score")
+
+  article  News   @relation(fields: [articleId], references: [id], onDelete: Cascade)
+  ticker   Ticker @relation(fields: [tickerId], references: [id], onDelete: Cascade)
+
+  @@id([articleId, tickerId])
+  @@index([tickerId])
+  @@map("ticker_mentions")
+}

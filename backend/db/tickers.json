@@ -1,0 +1,12 @@
+[
+  { "symbol": "BBCA", "name": "Bank Central Asia Tbk",       "sector": "Financial",              "subsector": "Banking" },
+  { "symbol": "BBRI", "name": "Bank Rakyat Indonesia Tbk",   "sector": "Financial",              "subsector": "Banking" },
+  { "symbol": "BMRI", "name": "Bank Mandiri Tbk",            "sector": "Financial",              "subsector": "Banking" },
+  { "symbol": "BBNI", "name": "Bank Negara Indonesia Tbk",   "sector": "Financial",              "subsector": "Banking" },
+  { "symbol": "BUMI", "name": "Bumi Resources Tbk",          "sector": "Mining",                 "subsector": "Coal Mining" },
+  { "symbol": "PTRO", "name": "Petrosea Tbk",                "sector": "Mining",                 "subsector": "Mining Services" },
+  { "symbol": "BUVA", "name": "Bukit Uluwatu Villa Tbk",     "sector": "Property & Hospitality", "subsector": "Hospitality" },
+  { "symbol": "DEWA", "name": "Darma Henwa Tbk",             "sector": "Mining",                 "subsector": "Mining Services" },
+  { "symbol": "GOTO", "name": "GoTo Gojek Tokopedia Tbk",    "sector": "Technology",             "subsector": "Internet" },
+  { "symbol": "BULL", "name": "Buana Lintas Lautan Tbk",     "sector": "Transportation",         "subsector": "Shipping" }
+]

@@ -22,8 +22,8 @@ function Register-BatTask {
                      -Argument "/c `"$BatFile`"" -WorkingDirectory $projectRoot
     $settings  = New-ScheduledTaskSettingsSet `
                      -ExecutionTimeLimit  (New-TimeSpan -Hours 3) `
-                     -StartWhenAvailable  $true `
-                     -WakeToRun           $false `
+                     -StartWhenAvailable `
+                     -WakeToRun:$false `
                      -MultipleInstances   IgnoreNew
     $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME `
                      -LogonType Interactive -RunLevel Highest
@@ -41,7 +41,7 @@ function Register-BatTask {
 Write-Host "`nRegistering IDXDaily scheduled tasks..." -ForegroundColor Cyan
 
 # Remove stale tasks from previous registrations
-foreach ($old in @("IDXDaily_Enrich", "IDXDaily_Catchup")) {
+foreach ($old in @("IDXDaily_Enrich")) {
     Unregister-ScheduledTask -TaskName $old -Confirm:$false -ErrorAction SilentlyContinue
 }
 

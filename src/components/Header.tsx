@@ -41,13 +41,12 @@ export default function Header({ market }: HeaderProps) {
   return (
     <header className="bg-white border-b border-stone-200 sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
-        {/* Brand — slightly smaller on mobile so search bar has room */}
+        {/* Brand */}
         <Link
           href="/"
           className="flex items-center hover:opacity-80 transition-opacity flex-shrink-0"
         >
-          <span className="sm:hidden"><Logo height={36} /></span>
-          <span className="hidden sm:inline-flex"><Logo height={44} /></span>
+          <Logo height={40} />
         </Link>
 
         {/* Centre: search */}

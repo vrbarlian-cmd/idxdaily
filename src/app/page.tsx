@@ -3,7 +3,6 @@ import FearGreedGauge      from '@/components/FearGreedGauge';
 import FearGreedHistorical from '@/components/FearGreedHistorical';
 import FearGreedChart      from '@/components/FearGreedChart';
 import TrendingTickers     from '@/components/TrendingTickers';
-import HotSectors          from '@/components/HotSectors';
 import AGradeNews          from '@/components/AGradeNews';
 import MacroMarketNews     from '@/components/MacroMarketNews';
 import HeroSearch          from '@/components/HeroSearch';
@@ -40,11 +39,8 @@ export default async function Home() {
         {/* Row 3: Macro & Market News — full-width, near top, time-sensitive */}
         <MacroMarketNews />
 
-        {/* Row 4: Trending Tickers + Hot Sectors */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <TrendingTickers />
-          <HotSectors />
-        </div>
+        {/* Row 4: Trending Tickers — full width */}
+        <TrendingTickers />
 
         {/* Row 5: High-Impact Stock News */}
         <AGradeNews />

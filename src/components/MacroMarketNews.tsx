@@ -174,58 +174,68 @@ function MacroCard({ a }: { a: Article }) {
   );
 }
 
+// ── Company-specific title filter ─────────────────────────────────────────────
+// Some articles land with tickerId=null but are still about a single company
+// (mis-extracted ticker, or the AI classified macro but the story is an emiten
+// earnings/dividend/action). Filter these out so the macro section stays clean.
+
+const MACRO_ACRONYMS = new Set([
+  'BI', 'OJK', 'BEI', 'LPS', 'KSSK', 'LPS',
+  'IHSG', 'LQ45', 'IDX', 'IDR', 'USD', 'EUR', 'JPY', 'CNY', 'SGD',
+  'US', 'EU', 'UK', 'IMF', 'WTO', 'OPEC', 'G20', 'G7',
+  'Fed', 'ECB', 'BOJ', 'RBI',
+  'MSCI', 'FTSE', 'DJIA', 'SPX', 'DXY',
+  'GDP', 'PMI', 'CPI', 'PPI', 'SBN', 'ETF', 'IPO',
+  'APBN', 'APBD', 'PPN', 'PPh', 'BUMN', 'PNBP',
+]);
+
+function looksCompanySpecific(title: string): boolean {
+  // "Saham BBCA naik..." / "Saham-saham perbankan..."
+  if (/^saham[\s-]/i.test(title)) return true;
+  // "Emiten GOTO catat..." (but NOT "Emiten Indonesia...")
+  if (/\bemiten\s+[A-Z]{2,5}\b/i.test(title)) return true;
+  // "Dividen BBCA Rp 340..." / "Dividen Final BUMI..."
+  if (/\bdividen\b/i.test(title)) return true;
+  // "Laba BBRI Kuartal..." / "Rugi GOTO..."
+  if (/^(laba|rugi|pendapatan)\s+[A-Z]{2,5}\b/i.test(title)) return true;
+  // Title starts with an ALL-CAPS word (2–5 chars) that is NOT a known macro acronym.
+  // e.g. "BBCA Catat Rekor" — BBCA is a ticker, not in MACRO_ACRONYMS.
+  const leadWord = title.match(/^([A-Z]{2,5})(?=[\s:])/)?.[1];
+  if (leadWord && !MACRO_ACRONYMS.has(leadWord)) return true;
+  return false;
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default async function MacroMarketNews() {
-  // Market-level macro news — three tiers:
+  // Only NULL-ticker articles — two tiers:
   //
-  // Tier 1: NULL-ticker MACRO articles, impact ≥ 7.0.
-  //   This threshold filters out generic "IHSG diperkirakan" daily outlook
-  //   articles (which Gemini scores 6.0–6.5) while keeping genuine market
-  //   catalysts: BI rate decisions, MSCI/FTSE rebalancing, rupiah extremes,
-  //   IHSG sharp moves, Fed hawkish signals, foreign flow events (impact 7–9).
+  // Tier 1: MACRO, impact ≥ 7.0.
+  //   Keeps genuine catalysts (BI rate, MSCI/FTSE, rupiah extremes, IHSG
+  //   sharp moves, Fed signals, foreign-flow events) while filtering out
+  //   generic daily-outlook pieces (scored 6.0–6.5 by the AI).
   //
-  // Tier 2: NULL-ticker REGULATORY articles, impact ≥ 5.5.
-  //   Regulatory/policy news (export restrictions, government fiscal moves)
-  //   are rarer and almost always genuinely market-wide when NULL-ticker.
+  // Tier 2: REGULATORY, impact ≥ 5.5.
+  //   Policy/regulatory news is rarer; almost always market-wide when
+  //   the ticker is null.
   //
-  // Tier 3: MACRO/REGULATORY articles WITH a ticker, impact ≥ 7.5 only.
-  //   These are high-impact macro events that happen to get a primary ticker
-  //   attached (e.g. a BI rate article about banking sector).
-  //
-  // SECTOR excluded: NULL-ticker SECTOR articles are too noisy (stock picks
-  //   misclassified as market-wide). All genuine market-wide sector news
-  //   (oil price, commodity policy) gets MACRO or REGULATORY instead.
-  //
-  // Sort: newest day first, highest impact within same day — so today's big
-  //   catalyst beats today's routine update, but yesterday's news yields to
-  //   today's regardless of impact.
-  const articles = await prisma.news.findMany({
+  // Ticker-specific articles are NEVER shown here, even if classified MACRO.
+  // A post-fetch title filter also strips company-named stories whose ticker
+  // wasn't extracted but the headline is clearly about a single emiten.
+  const raw = await prisma.news.findMany({
     where: {
       aiSummary: { not: null },
+      tickerId:  null,
       OR: [
-        {
-          tickerId:    null,
-          category:   'MACRO',
-          impactScore: { gte: 7.0 },
-        },
-        {
-          tickerId:    null,
-          category:   'REGULATORY',
-          impactScore: { gte: 5.5 },
-        },
-        {
-          tickerId:    { not: null },
-          category:   { in: ['MACRO', 'REGULATORY'] },
-          impactScore: { gte: 7.5 },
-        },
+        { category: 'MACRO',      impactScore: { gte: 7.0 } },
+        { category: 'REGULATORY', impactScore: { gte: 5.5 } },
       ],
     },
     orderBy: [
       { publishedAt: 'desc' },
       { impactScore:  'desc' },
     ],
-    take: 6,
+    take: 12,
     select: {
       id: true, title: true, aiSummary: true, url: true, source: true,
       publishedAt: true, sentiment: true, impactScore: true, category: true,
@@ -233,7 +243,9 @@ export default async function MacroMarketNews() {
     },
   });
 
-  if (articles.length === 0) return null;
+  const articles = raw
+    .filter(a => !looksCompanySpecific(a.title))
+    .slice(0, 6);
 
   const hasFresh = articles.some(a => a.publishedAt && isToday(a.publishedAt));
 
@@ -245,14 +257,16 @@ export default async function MacroMarketNews() {
         <div className="flex items-center gap-2">
           <Globe2 className="w-4 h-4 text-blue-500 flex-shrink-0" />
           <h2 className="text-sm font-bold text-stone-800">Berita Makro &amp; Pasar</h2>
-          <span className="text-[10px] text-stone-400 bg-stone-100 rounded-full px-2 py-0.5">
-            {articles.length}
-          </span>
+          {articles.length > 0 && (
+            <span className="text-[10px] text-stone-400 bg-stone-100 rounded-full px-2 py-0.5">
+              {articles.length}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          {!hasFresh && (
+          {(!hasFresh || articles.length === 0) && (
             <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 font-medium">
-              Tidak ada berita baru hari ini
+              Tidak ada berita makro baru hari ini
             </span>
           )}
           <span className="text-[11px] text-stone-400">IHSG · BI Rate · Global</span>
@@ -260,11 +274,18 @@ export default async function MacroMarketNews() {
       </div>
 
       {/* Articles */}
-      <div className="p-4 space-y-3">
-        {articles.map(a => (
-          <MacroCard key={a.id} a={a} />
-        ))}
-      </div>
+      {articles.length > 0 ? (
+        <div className="p-4 space-y-3">
+          {articles.map(a => (
+            <MacroCard key={a.id} a={a} />
+          ))}
+        </div>
+      ) : (
+        <div className="px-5 py-6 text-center text-sm text-stone-400">
+          Hari ini tidak ada berita makro atau kebijakan berdampak tinggi.
+          Bagian ini hanya menampilkan berita level-pasar, bukan berita emiten.
+        </div>
+      )}
     </section>
   );
 }

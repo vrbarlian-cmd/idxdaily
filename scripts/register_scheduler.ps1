@@ -50,8 +50,7 @@ foreach ($old in @("IDXDaily_Enrich")) {
 # StartWhenAvailable=true means: if the laptop slept through a 15-min slot,
 # fire once when it wakes - NOT all the missed runs, just one catch-up.
 $t1 = New-ScheduledTaskTrigger -Once -At (Get-Date).ToString("HH:mm") `
-          -RepetitionInterval (New-TimeSpan -Minutes 15) `
-          -RepetitionDuration ([TimeSpan]::MaxValue)
+          -RepetitionInterval (New-TimeSpan -Minutes 15)
 Register-BatTask "IDXDaily_Ingest" "$scriptsDir\run_ingest.bat" $t1 `
     "Smart ingest every 15min; market hours=GN+RSS+enrich; off-hours=RSS+enrich at most every 2h. StartWhenAvailable catches up after sleep."
 

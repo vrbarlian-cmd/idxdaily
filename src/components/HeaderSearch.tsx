@@ -77,9 +77,9 @@ export default function HeaderSearch() {
           placeholder="Cari saham…"
           maxLength={6}
           autoComplete="off"
-          className="w-full pl-8 pr-3 py-1.5 text-xs border border-stone-200 rounded-lg bg-stone-50
-                     text-stone-800 placeholder-stone-400
-                     focus:outline-none focus:ring-2 focus:ring-brand-300 focus:border-brand-400
+          className="w-full pl-8 pr-3 py-1.5 text-xs border border-[#e5e2db] rounded-full bg-[#f8f7f4]
+                     text-[#0f172a] placeholder-[#9ca3af]
+                     focus:outline-none focus:ring-2 focus:ring-blue-200 focus:border-blue-400
                      focus:bg-white transition-all duration-150"
         />
         {loading && (

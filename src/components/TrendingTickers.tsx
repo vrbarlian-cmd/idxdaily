@@ -102,11 +102,24 @@ export default async function TrendingTickers({ currentTicker }: { currentTicker
       {items.length === 0 ? (
         <p className="text-[#9ca3af] text-sm py-4">Belum ada data.</p>
       ) : (
-        /* Horizontal scroll strip */
-        <div
-          className="flex gap-2.5 overflow-x-auto pb-1"
-          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
-        >
+        /* Horizontal scroll strip with right-fade affordance */
+        <div className="relative">
+          {/* Right-edge fade — hints "more content" without JS */}
+          <div
+            className="pointer-events-none absolute right-0 top-0 bottom-1 w-12 z-10"
+            style={{ background: 'linear-gradient(to left, #f8f7f4 10%, transparent 100%)' }}
+          />
+
+          <div
+            className="flex gap-2.5 overflow-x-auto pb-2 [&::-webkit-scrollbar]:hidden"
+            style={{
+              scrollbarWidth:          'none',
+              msOverflowStyle:         'none',
+              WebkitOverflowScrolling: 'touch',
+              scrollSnapType:          'x mandatory',
+              paddingRight:            '3rem',
+            }}
+          >
           {items.map(({ ticker, count, sentiment, enriched }) => {
             const isActive  = currentTicker === ticker.symbol;
             const widthPct  = Math.max(10, Math.round((count / maxCount) * 100));
@@ -115,6 +128,7 @@ export default async function TrendingTickers({ currentTicker }: { currentTicker
               <Link
                 key={ticker.id}
                 href={`/saham/${ticker.symbol}`}
+                style={{ scrollSnapAlign: 'start' }}
                 className={`
                   group flex-shrink-0 w-36 rounded-xl border p-3 transition-all duration-150
                   hover:shadow-sm
@@ -160,6 +174,7 @@ export default async function TrendingTickers({ currentTicker }: { currentTicker
               </Link>
             );
           })}
+          </div>
         </div>
       )}
     </section>

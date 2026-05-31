@@ -313,12 +313,18 @@ export default function FearGreedChart() {
               */}
               <defs>
                 <linearGradient id="fgLineGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%"   stopColor="#fca5a5" stopOpacity={0.8} />
-                  <stop offset="25%"  stopColor="#fb923c" stopOpacity={0.75} />
-                  <stop offset="45%"  stopColor="#fbbf24" stopOpacity={0.7} />
-                  <stop offset="55%"  stopColor="#fbbf24" stopOpacity={0.7} />
-                  <stop offset="75%"  stopColor="#6ee7b7" stopOpacity={0.75} />
-                  <stop offset="100%" stopColor="#34d399" stopOpacity={0.8} />
+                  {/* top=score100=Extreme Greed → bottom=score0=Extreme Fear */}
+                  {/* Duplicate stops at boundaries create Coinglass-style hard color edges */}
+                  <stop offset="0%"   stopColor="#F6465D" />  {/* Extreme Greed */}
+                  <stop offset="25%"  stopColor="#F6465D" />
+                  <stop offset="25%"  stopColor="#F4742B" />  {/* Greed */}
+                  <stop offset="45%"  stopColor="#F4742B" />
+                  <stop offset="45%"  stopColor="#F0B90B" />  {/* Neutral */}
+                  <stop offset="50%"  stopColor="#F0B90B" />
+                  <stop offset="50%"  stopColor="#84CC9A" />  {/* Fear */}
+                  <stop offset="75%"  stopColor="#84CC9A" />
+                  <stop offset="75%"  stopColor="#00C076" />  {/* Extreme Fear */}
+                  <stop offset="100%" stopColor="#00C076" />
                 </linearGradient>
               </defs>
 
@@ -410,9 +416,9 @@ export default function FearGreedChart() {
                 <svg width="20" height="3" style={{ overflow: 'visible', display: 'block' }}>
                   <defs>
                     <linearGradient id="legendFgGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%"   stopColor="#34d399" stopOpacity={0.8} />
-                      <stop offset="50%"  stopColor="#fbbf24" stopOpacity={0.75} />
-                      <stop offset="100%" stopColor="#fca5a5" stopOpacity={0.8} />
+                      <stop offset="0%"   stopColor="#00C076" />
+                      <stop offset="50%"  stopColor="#F0B90B" />
+                      <stop offset="100%" stopColor="#F6465D" />
                     </linearGradient>
                   </defs>
                   <line x1="0" y1="1.5" x2="20" y2="1.5" stroke="url(#legendFgGrad)" strokeWidth="2.5" />

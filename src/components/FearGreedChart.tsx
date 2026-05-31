@@ -42,13 +42,13 @@ const RANGES: { key: Range; label: string }[] = [
 // Single sophisticated teal accent — clean, high-end financial journalism look
 const FG_COLOR = '#0d9488';
 
-// Muted, editorial zone fills
+// Coinglass-style zone fills: faint green bottom (fear), faint red top (greed)
 const ZONES = [
-  { y1: 0,  y2: 25,  fill: '#fdf2f2', label: 'Ext. Fear',  labelColor: '#b91c1c' },
-  { y1: 25, y2: 45,  fill: '#fef8f0', label: 'Fear',        labelColor: '#d97706' },
+  { y1: 0,  y2: 25,  fill: '#ecfdf5', label: 'Ext. Fear',  labelColor: '#059669' },
+  { y1: 25, y2: 45,  fill: '#f7fef9', label: 'Fear',        labelColor: '#6ee7b7' },
   { y1: 45, y2: 55,  fill: '#fafafa', label: 'Neutral',     labelColor: '#9ca3af' },
-  { y1: 55, y2: 75,  fill: '#f0fdf6', label: 'Greed',       labelColor: '#059669' },
-  { y1: 75, y2: 100, fill: '#ecfdf5', label: 'Ext. Greed',  labelColor: '#047857' },
+  { y1: 55, y2: 75,  fill: '#fff8f1', label: 'Greed',       labelColor: '#fb923c' },
+  { y1: 75, y2: 100, fill: '#fff1f2', label: 'Ext. Greed',  labelColor: '#f87171' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -306,6 +306,22 @@ export default function FearGreedChart() {
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={chartData} margin={{ top: 4, right: isMobile ? 8 : 52, bottom: 0, left: 0 }}>
 
+              {/*
+                Coinglass-style gradient: top of chart = Extreme Greed = muted red/pink,
+                bottom = Extreme Fear = desaturated green. Stops match zone boundaries
+                (score 100→75→55→45→25→0 maps to y 0%→25%→45%→55%→75%→100%).
+              */}
+              <defs>
+                <linearGradient id="fgLineGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#fca5a5" stopOpacity={0.8} />
+                  <stop offset="25%"  stopColor="#fb923c" stopOpacity={0.75} />
+                  <stop offset="45%"  stopColor="#fbbf24" stopOpacity={0.7} />
+                  <stop offset="55%"  stopColor="#fbbf24" stopOpacity={0.7} />
+                  <stop offset="75%"  stopColor="#6ee7b7" stopOpacity={0.75} />
+                  <stop offset="100%" stopColor="#34d399" stopOpacity={0.8} />
+                </linearGradient>
+              </defs>
+
               {/* Zone bands */}
               {ZONES.map(z => (
                 <ReferenceArea
@@ -371,17 +387,17 @@ export default function FearGreedChart() {
                 opacity={0.8}
               />
 
-              {/* F&G — single unified teal line */}
+              {/* F&G — Coinglass-style segmented gradient line, semi-transparent */}
               <Line
                 yAxisId="fg"
                 type="monotone"
                 dataKey="fgAll"
-                stroke={FG_COLOR}
+                stroke="url(#fgLineGradient)"
                 strokeWidth={2.5}
                 dot={false}
                 connectNulls
                 name="Fear & Greed"
-                activeDot={{ r: 4, fill: FG_COLOR, stroke: 'white', strokeWidth: 2 }}
+                activeDot={{ r: 4, fill: '#6b7280', stroke: 'white', strokeWidth: 2 }}
               />
 
             </ComposedChart>
@@ -391,7 +407,16 @@ export default function FearGreedChart() {
           <div className="flex flex-wrap items-center justify-between mt-2 px-3 gap-y-1.5">
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-5 border-t-2 rounded" style={{ borderColor: FG_COLOR }} />
+                <svg width="20" height="3" style={{ overflow: 'visible', display: 'block' }}>
+                  <defs>
+                    <linearGradient id="legendFgGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%"   stopColor="#34d399" stopOpacity={0.8} />
+                      <stop offset="50%"  stopColor="#fbbf24" stopOpacity={0.75} />
+                      <stop offset="100%" stopColor="#fca5a5" stopOpacity={0.8} />
+                    </linearGradient>
+                  </defs>
+                  <line x1="0" y1="1.5" x2="20" y2="1.5" stroke="url(#legendFgGrad)" strokeWidth="2.5" />
+                </svg>
                 <span className="text-[#6b7280] font-medium">Fear &amp; Greed</span>
               </div>
               <div className="flex items-center gap-1.5">

@@ -712,7 +712,14 @@ async def run_once(
         if art["url"] not in seen_urls:
             seen_urls.add(art["url"])
             unique.append(art)
-    print(f"[ingest] {len(unique)} unique articles after dedup")
+    print(f"[ingest] {len(unique)} unique articles after URL dedup")
+
+    # ── Semantic dedup — same story from multiple sources ──────────────────
+    # Cross-source: Jaccard ≥ 0.80 within 6h window → keep highest-tier source
+    # Same-source:  Jaccard ≥ 0.90 within 6h window → keep earliest
+    from .dedup import dedup_batch
+    unique = dedup_batch(unique, ticker_key="detected_ticker")
+    print(f"[ingest] {len(unique)} articles after semantic dedup")
 
     # ── Freshness filter — drop articles with no date or older than 30 days ──
     cutoff     = datetime.now(timezone.utc) - timedelta(days=30)

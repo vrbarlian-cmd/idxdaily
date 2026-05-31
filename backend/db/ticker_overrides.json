@@ -49,7 +49,7 @@
 
   "ARGO": { "skip_symbol_tag": true,  "exact_aliases": ["Argo Pantes"] },
   "AREA": { "skip_symbol_tag": true,  "name_slugs": ["Dunia Virtual Online"] },
-  "CUAN": { "skip_symbol_tag": true,  "name_slugs": ["Petrindo Jaya Kreasi"] },
+  "CUAN": { "skip_symbol_tag": true,  "name_slugs": ["Petrindo Jaya Kreasi", "Petrindo Kreasi", "Petrindo"] },
   "DEWI": { "skip_symbol_tag": true,  "name_slugs": ["Dewi Shri Farmindo"] },
   "HOME": { "skip_symbol_tag": true,  "name_slugs": ["Hotel Mandarine Regency"] },
   "META": { "skip_symbol_tag": true,  "name_slugs": ["Nusantara Infrastructure"] },

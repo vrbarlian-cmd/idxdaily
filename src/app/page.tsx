@@ -7,6 +7,8 @@ import AGradeNews          from '@/components/AGradeNews';
 import MacroMarketNews     from '@/components/MacroMarketNews';
 import HeroSearch          from '@/components/HeroSearch';
 
+export const dynamic = 'force-dynamic';
+
 export default async function Home() {
   const [fgData, histData] = await Promise.all([
     computeFearGreed(7),

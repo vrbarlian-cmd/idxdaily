@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { computeFearGreed } from '@/lib/fearGreed';
+export const dynamic = 'force-dynamic';
 
 // GET /api/fear-greed?days=7
 export async function GET(request: Request) {
@@ -37,3 +38,4 @@ export async function GET(request: Request) {
     },
   });
 }
+

@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server';
+﻿import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+export const dynamic = 'force-dynamic';
 
 export interface FearGreedHistoryPoint {
   date:          string;   // YYYY-MM-DD
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const daysParam = searchParams.get('days') || '30';
   const isAll = daysParam === 'all';
-  // For "all", use 3650 days (10 years) — effectively unbounded
+  // For “all”, use 3650 days (10 years) - effectively unbounded
   const days = isAll ? 3650 : Math.max(7, Math.min(365, parseInt(daysParam, 10)));
 
   // Fetch F&G history with is_backfilled flag
@@ -86,3 +87,4 @@ export async function GET(request: Request) {
 
   return NextResponse.json({ points, days });
 }
+

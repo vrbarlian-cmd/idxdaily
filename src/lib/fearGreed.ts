@@ -515,7 +515,7 @@ export async function getHistoricalValues(): Promise<HistoricalValues> {
 
   return {
     now,
-    yesterday: findNearest(1, 2),
+    yesterday: findNearest(1, 5),   // 5-day tolerance handles long holiday weekends
     lastWeek:  findNearest(7, 4),
     lastMonth: findNearest(30, 5),
   };

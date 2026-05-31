@@ -94,6 +94,9 @@ TICKER_TAG_ENABLED: set[str] = {
     "WIFI",
     # Manually tracked (our original 10)
     "BUMI", "PTRO", "BUVA", "DEWA", "BULL",
+    # Small-caps added after root-cause diagnosis (2026-05-31)
+    # tag_enabled=False was the sole reason these had zero GN coverage
+    "BNBR", "CUAN", "ARTO", "MSIN",
 }
 
 # Common words to skip when generating 2-word aliases (too generic to match)

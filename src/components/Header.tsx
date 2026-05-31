@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import HeaderSearch from '@/components/HeaderSearch';
+import HeaderSearchConditional from '@/components/HeaderSearchConditional';
 import Logo from '@/components/Logo';
 import type { MarketSnapshot } from '@/lib/marketData';
 
@@ -49,9 +49,9 @@ export default function Header({ market }: HeaderProps) {
           <Logo height={48} />
         </Link>
 
-        {/* Centre: search */}
+        {/* Centre: search — hidden on homepage (hero search handles it there) */}
         <div className="flex-1 flex justify-center px-2">
-          <HeaderSearch />
+          <HeaderSearchConditional />
         </div>
 
         {/* Market pills */}

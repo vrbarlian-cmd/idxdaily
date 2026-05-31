@@ -1,75 +1,39 @@
-import { Zap, Sparkles } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { format, formatDistanceToNow, isToday } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 
-// ── "Diringkas AI" badge ──────────────────────────────────────────────────────
-
-function DiringkasAiBadge() {
-  return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-semibold text-white flex-shrink-0"
-      style={{
-        background: 'linear-gradient(135deg, #7c3aed 0%, #2563eb 100%)',
-        boxShadow:  '0 0 8px rgba(124,58,237,0.25)',
-      }}
-    >
-      <Sparkles className="w-3 h-3 flex-shrink-0" />
-      Diringkas AI
-    </span>
-  );
-}
-
-// ── Date display — prominently shows date for non-today articles ───────────────
-
-function PubDate({ date }: { date: Date | null }) {
-  if (!date) return null;
-  if (isToday(date)) {
-    const wib = date.toLocaleTimeString('id-ID', {
-      hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
-    });
-    return <span className="text-xs text-stone-400 font-medium">{wib} WIB hari ini</span>;
-  }
-  const label = format(date, 'd MMM yyyy', { locale: localeId });
-  const ago   = formatDistanceToNow(date, { addSuffix: true, locale: localeId });
-  return (
-    <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
-      {label} · {ago}
-    </span>
-  );
-}
-
-// ── Sentiment color helpers ───────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function accentBar(s: string) {
+  if (s === 'BULLISH') return 'border-l-emerald-500';
+  if (s === 'BEARISH') return 'border-l-red-500';
+  return 'border-l-amber-400';
+}
+function bgTint(s: string) {
+  if (s === 'BULLISH') return 'bg-emerald-50/10';
+  if (s === 'BEARISH') return 'bg-red-50/15';
+  return '';
+}
+function sentimentDot(s: string) {
   if (s === 'BULLISH') return 'bg-emerald-500';
   if (s === 'BEARISH') return 'bg-red-500';
   return 'bg-amber-400';
 }
-function chipStyle(s: string) {
-  if (s === 'BULLISH') return 'bg-emerald-50 text-emerald-700 border-emerald-200';
-  if (s === 'BEARISH') return 'bg-red-50 text-red-600 border-red-200';
-  return 'bg-amber-50 text-amber-700 border-amber-200';
+function sentimentTextColor(s: string) {
+  if (s === 'BULLISH') return 'text-emerald-700';
+  if (s === 'BEARISH') return 'text-red-600';
+  return 'text-amber-700';
 }
-function dotColor(s: string) {
-  if (s === 'BULLISH') return 'bg-emerald-500';
-  if (s === 'BEARISH') return 'bg-red-500';
-  return 'bg-amber-400';
-}
-function chipLabel(s: string) {
+function sentimentLabel(s: string) {
   if (s === 'BULLISH') return 'Bullish';
   if (s === 'BEARISH') return 'Bearish';
   return 'Netral';
 }
-function bgTint(s: string) {
-  if (s === 'BULLISH') return 'bg-emerald-50/20';
-  if (s === 'BEARISH') return 'bg-red-50/25';
-  return 'bg-amber-50/20';
-}
 function impactBarColor(s: string) {
-  if (s === 'BULLISH') return 'bg-emerald-500';
-  if (s === 'BEARISH') return 'bg-red-500';
+  if (s === 'BULLISH') return 'bg-emerald-400';
+  if (s === 'BEARISH') return 'bg-red-400';
   return 'bg-amber-400';
 }
 function impactScoreColor(s: string) {
@@ -78,7 +42,26 @@ function impactScoreColor(s: string) {
   return 'text-amber-700';
 }
 
-// ── Article card ─────────────────────────────────────────────────────────────
+// ── Date display ──────────────────────────────────────────────────────────────
+
+function PubDate({ date }: { date: Date | null }) {
+  if (!date) return null;
+  if (isToday(date)) {
+    const wib = date.toLocaleTimeString('id-ID', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
+    });
+    return <span className="text-[11px] text-[#9ca3af] tabular-nums">{wib} WIB</span>;
+  }
+  const label = format(date, 'd MMM yyyy', { locale: localeId });
+  const ago   = formatDistanceToNow(date, { addSuffix: true, locale: localeId });
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">
+      {label} · {ago}
+    </span>
+  );
+}
+
+// ── Article card ──────────────────────────────────────────────────────────────
 
 interface ArticleData {
   id:          string;
@@ -96,80 +79,92 @@ interface ArticleData {
 function ArticleCard({ a }: { a: ArticleData }) {
   return (
     <div
-      className={`relative border border-stone-200 rounded-2xl p-4 pl-5 overflow-hidden shadow-sm hover:shadow-md transition-shadow duration-200 ${bgTint(a.sentiment)}`}
+      className={`
+        relative bg-white border border-[#e5e2db] border-l-4 ${accentBar(a.sentiment)}
+        ${bgTint(a.sentiment)} rounded-xl overflow-hidden
+        transition-shadow duration-200 hover:shadow-sm
+      `}
     >
-      <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${accentBar(a.sentiment)}`} />
+      <div className="p-4 pl-5">
 
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex-1 min-w-0">
+        {/* Meta row */}
+        <div className="flex items-center gap-2 mb-2.5 flex-wrap">
 
-          {/* Meta row */}
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            {/* Ticker chip (stock articles only) */}
-            {a.ticker && (
-              <Link
-                href={`/saham/${a.ticker.symbol}`}
-                className="font-mono text-xs font-bold bg-stone-800 hover:bg-stone-700 text-white rounded px-2 py-0.5 transition-colors flex-shrink-0"
-              >
-                {a.ticker.symbol}
-              </Link>
-            )}
-
-            {/* Sentiment chip */}
-            <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold border flex-shrink-0 ${chipStyle(a.sentiment)}`}>
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotColor(a.sentiment)}`} />
-              {chipLabel(a.sentiment)}
-            </span>
-
-            {/* AI badge */}
-            {a.aiSummary && <DiringkasAiBadge />}
-
-            {/* Source */}
-            <span className="text-xs text-stone-500 font-medium">{a.source}</span>
-
-            {/* Date — prominent for non-today */}
-            <PubDate date={a.publishedAt} />
-          </div>
-
-          {/* Title */}
-          <p className="text-sm font-bold text-stone-900 leading-snug mb-1.5 line-clamp-2">
-            {a.title}
-          </p>
-
-          {/* Summary */}
-          {a.aiSummary && (
-            <p className="text-xs text-stone-600 leading-relaxed mb-2">
-              {a.aiSummary}
-            </p>
+          {/* Ticker chip */}
+          {a.ticker && (
+            <Link
+              href={`/saham/${a.ticker.symbol}`}
+              className="font-mono text-[10px] font-bold bg-[#0f172a] hover:bg-[#1e293b] text-white rounded px-1.5 py-0.5 transition-colors flex-shrink-0"
+            >
+              {a.ticker.symbol}
+            </Link>
           )}
 
-          {/* Impact bar */}
-          <div className="flex items-center gap-2">
-            <div className="flex-1 h-1 bg-stone-100 rounded-full overflow-hidden">
-              <div
-                className={`h-1 rounded-full ${impactBarColor(a.sentiment)}`}
-                style={{ width: `${(a.impactScore / 10) * 100}%` }}
-              />
-            </div>
-            {a.url && (
-              <a
-                href={a.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-brand-600 hover:text-brand-700 font-semibold flex-shrink-0"
-              >
-                Baca →
-              </a>
-            )}
-          </div>
+          {/* Sentiment — dot + plain text */}
+          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold flex-shrink-0 ${sentimentTextColor(a.sentiment)}`}>
+            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sentimentDot(a.sentiment)}`} />
+            {sentimentLabel(a.sentiment)}
+          </span>
+
+          {/* AI badge — plain, no gradient */}
+          {a.aiSummary && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#1a56db] flex-shrink-0">
+              <Sparkles className="w-2.5 h-2.5" />
+              AI
+            </span>
+          )}
+
+          {/* Source */}
+          <span className="text-[11px] text-[#9ca3af]">{a.source}</span>
+
+          {/* Date */}
+          <PubDate date={a.publishedAt} />
         </div>
 
-        {/* Impact score badge */}
-        <div className="flex-shrink-0 text-right">
-          <span className={`text-2xl font-bold leading-none tabular-nums ${impactScoreColor(a.sentiment)}`}>
-            {a.impactScore.toFixed(1)}
-          </span>
-          <p className="text-xs text-stone-400 mt-0.5">/10</p>
+        {/* Body */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+
+            {/* Title */}
+            <p className="text-sm font-bold text-[#0f172a] leading-snug mb-1.5 line-clamp-2">
+              {a.title}
+            </p>
+
+            {/* Summary */}
+            {a.aiSummary && (
+              <p className="text-xs text-[#4b5563] leading-relaxed mb-2.5">
+                {a.aiSummary}
+              </p>
+            )}
+
+            {/* Impact bar */}
+            <div className="flex items-center gap-2">
+              <div className="flex-1 h-1 bg-[#f0ede8] rounded-full overflow-hidden">
+                <div
+                  className={`h-1 rounded-full ${impactBarColor(a.sentiment)}`}
+                  style={{ width: `${(a.impactScore / 10) * 100}%` }}
+                />
+              </div>
+              {a.url && (
+                <a
+                  href={a.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[11px] text-[#1a56db] hover:text-blue-700 font-semibold flex-shrink-0"
+                >
+                  Baca →
+                </a>
+              )}
+            </div>
+          </div>
+
+          {/* Impact score */}
+          <div className="flex-shrink-0 text-right">
+            <span className={`text-2xl font-bold leading-none tabular-nums ${impactScoreColor(a.sentiment)}`}>
+              {a.impactScore.toFixed(1)}
+            </span>
+            <p className="text-[10px] text-[#9ca3af] mt-0.5">/10</p>
+          </div>
         </div>
       </div>
     </div>
@@ -177,8 +172,6 @@ function ArticleCard({ a }: { a: ArticleData }) {
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
-// Stock-specific high-impact news only.
-// Market-level macro news is handled by MacroMarketNews component (placed higher on page).
 
 export default async function AGradeNews() {
   const stockArticles = await prisma.news.findMany({
@@ -186,7 +179,6 @@ export default async function AGradeNews() {
       aiSummary:   { not: null },
       impactScore: { gte: 7.5 },
       tickerId:    { not: null },
-      // Exclude articles already shown in MacroMarketNews
       category:    { notIn: ['MACRO', 'REGULATORY'] },
     },
     orderBy: [{ publishedAt: 'desc' }, { impactScore: 'desc' }],
@@ -201,20 +193,29 @@ export default async function AGradeNews() {
   if (stockArticles.length === 0) return null;
 
   return (
-    <section className="space-y-4">
-      <div>
-        <div className="flex items-center gap-2 mb-3">
-          <Zap className="w-4 h-4 text-amber-500" />
-          <h2 className="text-sm font-bold text-stone-800">High-Impact Saham</h2>
-          <span className="text-xs text-stone-400 bg-stone-100 rounded-full px-2 py-0.5">
-            {stockArticles.length}
-          </span>
+    <section>
+
+      {/* Section header */}
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
+            Berita Emiten
+          </p>
+          <h2 className="text-sm font-bold text-[#0f172a]">
+            High-Impact Saham
+          </h2>
         </div>
-        <div className="space-y-3">
-          {stockArticles.map(a => (
-            <ArticleCard key={a.id} a={a} />
-          ))}
-        </div>
+        <span className="text-[11px] text-[#9ca3af]">
+          impact ≥ 7.5 · AI enriched
+        </span>
+      </div>
+
+      <hr className="border-[#e5e2db] mb-4" />
+
+      <div className="space-y-3">
+        {stockArticles.map(a => (
+          <ArticleCard key={a.id} a={a} />
+        ))}
       </div>
     </section>
   );

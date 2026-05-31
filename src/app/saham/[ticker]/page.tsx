@@ -23,16 +23,16 @@ function StatCard({
     emerald: 'bg-emerald-500',
     red:     'bg-red-500',
     amber:   'bg-amber-400',
-    brand:   'bg-brand-500',
+    brand:   'bg-[#1a56db]',
   };
   return (
-    <div className="relative bg-white border border-stone-200 rounded-2xl p-4 shadow-sm overflow-hidden">
+    <div className="relative bg-white border border-[#e5e2db] rounded-xl p-4 overflow-hidden">
       {accent && (
         <div className={`absolute top-0 left-0 right-0 h-0.5 ${accentBar[accent]}`} />
       )}
-      <p className="text-xs text-stone-400 uppercase tracking-widest mb-1.5">{label}</p>
-      <p className="text-2xl font-bold text-stone-900 leading-none">{value}</p>
-      {sub && <p className="text-xs text-stone-400 mt-1.5">{sub}</p>}
+      <p className="text-[10px] text-[#9ca3af] uppercase tracking-widest mb-1.5">{label}</p>
+      <p className="text-2xl font-bold text-[#0f172a] leading-none">{value}</p>
+      {sub && <p className="text-[10px] text-[#9ca3af] mt-1.5">{sub}</p>}
     </div>
   );
 }
@@ -218,29 +218,29 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
   const sentiments = ['ALL', 'BULLISH', 'BEARISH', 'NEUTRAL'] as const;
 
   return (
-    <div className="min-h-screen bg-stone-50">
+    <div className="min-h-screen bg-[#f8f7f4]">
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-xs text-stone-400">
-          <Link href="/" className="hover:text-stone-600 transition-colors">Beranda</Link>
+        <nav className="flex items-center gap-1.5 text-xs text-[#9ca3af]">
+          <Link href="/" className="hover:text-[#6b7280] transition-colors">Beranda</Link>
           <span>/</span>
           <span>Saham</span>
           <span>/</span>
-          <span className="font-mono font-medium text-stone-600">{tickerRow.symbol}</span>
+          <span className="font-mono font-medium text-[#6b7280]">{tickerRow.symbol}</span>
         </nav>
 
         {/* Ticker header */}
         <div className="flex items-start gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="font-mono text-3xl font-bold text-stone-900">{tickerRow.symbol}</h1>
+              <h1 className="font-mono text-3xl font-bold text-[#0f172a]">{tickerRow.symbol}</h1>
               <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium border ${sentimentChipStyle}`}>
                 {dominantSentiment.charAt(0) + dominantSentiment.slice(1).toLowerCase()}
               </span>
             </div>
-            <p className="text-stone-500 mt-1">{tickerRow.name}</p>
+            <p className="text-[#6b7280] mt-1">{tickerRow.name}</p>
             {tickerRow.sector && (
-              <span className="inline-block mt-2 px-2.5 py-0.5 text-xs bg-stone-100 border border-stone-200 rounded text-stone-500">
+              <span className="inline-block mt-2 px-2.5 py-0.5 text-xs bg-[#f8f7f4] border border-[#e5e2db] rounded text-[#6b7280]">
                 {tickerRow.sector}
               </span>
             )}
@@ -265,50 +265,53 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
           <div className="md:col-span-2 space-y-4">
 
             {/* ── Berita Terbaru (30d live feed) ── */}
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <p className="text-sm text-stone-700 font-semibold">Berita Terbaru</p>
-                <p className="text-xs text-stone-400">30 hari terakhir · {recentNews.length} artikel</p>
+            <div>
+              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af]">Berita Terbaru</p>
+                  <p className="text-[10px] text-[#9ca3af] mt-0.5">30 hari terakhir · {recentNews.length} artikel</p>
+                </div>
+                {/* Sentiment filter */}
+                <div className="flex flex-wrap gap-1">
+                  {sentiments.map((s) => {
+                    const isActive = s === 'ALL' ? !sentimentFilter : sentimentFilter === s;
+                    const href = s === 'ALL'
+                      ? `/saham/${tickerRow.symbol}`
+                      : `/saham/${tickerRow.symbol}?sentiment=${s}`;
+                    return (
+                      <Link
+                        key={s}
+                        href={href}
+                        className={`px-3 py-1 text-xs rounded-full border transition-all font-medium ${
+                          isActive
+                            ? s === 'BULLISH' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
+                            : s === 'BEARISH' ? 'bg-red-50 border-red-300 text-red-600'
+                            : s === 'NEUTRAL' ? 'bg-amber-50 border-amber-300 text-amber-700'
+                            : 'bg-blue-50 border-blue-300 text-[#1a56db]'
+                            : 'bg-white border-[#e5e2db] text-[#6b7280] hover:border-[#d1cdc7] hover:bg-[#f8f7f4]'
+                        }`}
+                      >
+                        {s}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
-              {/* Sentiment filter */}
-              <div className="flex flex-wrap gap-1">
-                {sentiments.map((s) => {
-                  const isActive = s === 'ALL' ? !sentimentFilter : sentimentFilter === s;
-                  const href = s === 'ALL'
-                    ? `/saham/${tickerRow.symbol}`
-                    : `/saham/${tickerRow.symbol}?sentiment=${s}`;
-                  return (
-                    <Link
-                      key={s}
-                      href={href}
-                      className={`px-3 py-1 text-xs rounded-full border transition-all font-medium ${
-                        isActive
-                          ? s === 'BULLISH' ? 'bg-emerald-50 border-emerald-300 text-emerald-700 shadow-sm'
-                          : s === 'BEARISH' ? 'bg-red-50 border-red-300 text-red-600 shadow-sm'
-                          : s === 'NEUTRAL' ? 'bg-amber-50 border-amber-300 text-amber-700 shadow-sm'
-                          : 'bg-brand-50 border-brand-300 text-brand-700 shadow-sm'
-                          : 'bg-white border-stone-200 text-stone-500 hover:border-stone-300 hover:bg-stone-50'
-                      }`}
-                    >
-                      {s}
-                    </Link>
-                  );
-                })}
-              </div>
+              <hr className="border-[#e5e2db]" />
             </div>
 
             {recentNews.length === 0 ? (
-              <div className="bg-white border border-stone-200 rounded-xl p-8 text-center space-y-3">
+              <div className="bg-white border border-[#e5e2db] rounded-xl p-8 text-center space-y-3">
                 <div className="flex justify-center">
-                  <Newspaper className="w-8 h-8 text-stone-300" />
+                  <Newspaper className="w-8 h-8 text-[#d1cdc7]" />
                 </div>
-                <p className="text-stone-700 font-medium text-sm">
+                <p className="text-[#374151] font-medium text-sm">
                   {sentimentFilter
                     ? `Tidak ada berita ${sentimentFilter.toLowerCase()} untuk ${tickerRow.symbol} dalam 30 hari terakhir`
                     : `Belum ada berita terbaru untuk ${tickerRow.symbol} dalam 30 hari terakhir`
                   }
                 </p>
-                <p className="text-stone-400 text-xs leading-relaxed max-w-xs mx-auto">
+                <p className="text-[#9ca3af] text-xs leading-relaxed max-w-xs mx-auto">
                   {sentimentFilter
                     ? 'Coba hapus filter sentimen, atau kembali lagi nanti.'
                     : tickerRow.sector

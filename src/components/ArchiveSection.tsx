@@ -46,14 +46,14 @@ export default function ArchiveSection({ items, symbol, autoExpand = false }: Pr
       {/* Section header / toggle */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 bg-stone-100 border border-stone-200 rounded-xl text-sm font-semibold text-stone-600 hover:bg-stone-200 transition-colors"
+        className="w-full flex items-center justify-between px-4 py-3 bg-[#f8f7f4] border border-[#e5e2db] rounded-xl text-sm font-semibold text-[#6b7280] hover:bg-[#f0ede8] transition-colors"
         aria-expanded={open}
       >
         <span className="flex items-center gap-2">
-          <Archive className="w-4 h-4 text-stone-400" />
+          <Archive className="w-4 h-4 text-[#9ca3af]" />
           Arsip — {items.length} berita lama ({'>'}30 hari)
         </span>
-        <span className="flex items-center gap-1.5 text-xs font-normal text-stone-500">
+        <span className="flex items-center gap-1.5 text-xs font-normal text-[#9ca3af]">
           <span className="hidden sm:inline">Setiap artikel sudah jelas tanggalnya</span>
           {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </span>

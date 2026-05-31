@@ -29,12 +29,10 @@ export default async function Home() {
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-4">
 
-        {/* Row 1: Unified F&G editorial panel */}
-        <div className="bg-white border border-[#e5e2db] rounded-2xl shadow-sm overflow-hidden">
-          <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-[#e5e2db]">
-            <FearGreedGauge data={gaugeData} />
-            <FearGreedHistorical data={histData} />
-          </div>
+        {/* Row 1: Main gauge + Historical Values */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FearGreedGauge data={gaugeData} />
+          <FearGreedHistorical data={histData} />
         </div>
 
         {/* Row 2: F&G vs IHSG correlation chart */}

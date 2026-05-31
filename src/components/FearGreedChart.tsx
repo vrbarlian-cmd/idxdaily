@@ -9,7 +9,6 @@ import {
   CartesianGrid,
   Tooltip,
   ReferenceArea,
-  ReferenceLine,
   ResponsiveContainer,
 } from 'recharts';
 import type { FearGreedHistoryPoint } from '@/app/api/fear-greed-history/route';
@@ -19,14 +18,11 @@ import type { FearGreedHistoryPoint } from '@/app/api/fear-greed-history/route';
 type Range = '1w' | '1m' | '3m' | 'all';
 
 interface ChartPoint {
-  rawDate:      string;
-  dateLabel:    string;
-  fgAll:        number | null;
-  fgBackfill:   number | null;
-  fgLive:       number | null;
-  ihsg:         number | null;
-  label:        string;
-  isBackfilled: boolean;
+  rawDate:   string;
+  dateLabel: string;
+  fgAll:     number | null;
+  ihsg:      number | null;
+  label:     string;
 }
 
 interface ApiResponse {
@@ -43,7 +39,10 @@ const RANGES: { key: Range; label: string }[] = [
   { key: 'all', label: 'All' },
 ];
 
-// Muted, editorial zone fills — subtle wash, not pastel-loud
+// Single sophisticated teal accent — clean, high-end financial journalism look
+const FG_COLOR = '#0d9488';
+
+// Muted, editorial zone fills
 const ZONES = [
   { y1: 0,  y2: 25,  fill: '#fdf2f2', label: 'Ext. Fear',  labelColor: '#b91c1c' },
   { y1: 25, y2: 45,  fill: '#fef8f0', label: 'Fear',        labelColor: '#d97706' },
@@ -89,7 +88,6 @@ interface CustomTooltipProps {
 
 function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
-
   const pt = payload[0]?.payload as ChartPoint | undefined;
   if (!pt) return null;
 
@@ -98,9 +96,8 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   const fgLabel = pt.label;
 
   return (
-    <div className="bg-white border border-[#e5e2db] rounded-xl shadow-lg p-3 text-xs min-w-[140px]">
+    <div className="bg-white border border-[#e5e2db] rounded-xl shadow-lg p-3 text-xs min-w-[150px]">
       <p className="font-semibold text-[#6b7280] mb-2 pb-1.5 border-b border-[#f0ede8]">{label}</p>
-
       {fgVal != null && (
         <div className="flex items-center justify-between gap-3 mb-1">
           <span className="text-[#9ca3af]">Fear &amp; Greed</span>
@@ -123,9 +120,6 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
           </span>
         </div>
       )}
-      {pt.isBackfilled && (
-        <p className="text-[#d1cdc7] mt-1.5 text-[10px]">Data rekonstruksi</p>
-      )}
     </div>
   );
 }
@@ -135,9 +129,9 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
 function StatItem({
   label, value, sub, color,
 }: {
-  label: string;
-  value: string | number | null;
-  sub?:  string;
+  label:  string;
+  value:  string | number | null;
+  sub?:   string;
   color?: string;
 }) {
   return (
@@ -145,15 +139,10 @@ function StatItem({
       <span className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] whitespace-nowrap">
         {label}
       </span>
-      <span
-        className="text-sm font-bold tabular-nums leading-none"
-        style={{ color: color ?? '#0f172a' }}
-      >
+      <span className="text-sm font-bold tabular-nums leading-none" style={{ color: color ?? '#0f172a' }}>
         {value ?? '—'}
       </span>
-      {sub && (
-        <span className="text-[10px] text-[#9ca3af]">{sub}</span>
-      )}
+      {sub && <span className="text-[10px] text-[#9ca3af]">{sub}</span>}
     </div>
   );
 }
@@ -180,14 +169,8 @@ export default function FearGreedChart() {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<ApiResponse>;
       })
-      .then(d => {
-        setAllPoints(d.points);
-        setLoading(false);
-      })
-      .catch(() => {
-        setError('Gagal memuat data historis');
-        setLoading(false);
-      });
+      .then(d => { setAllPoints(d.points); setLoading(false); })
+      .catch(() => { setError('Gagal memuat data historis'); setLoading(false); });
   }, []);
 
   const filteredPoints = useMemo<FearGreedHistoryPoint[]>(() => {
@@ -216,38 +199,15 @@ export default function FearGreedChart() {
     };
   }, [filteredPoints]);
 
-  const { chartData, firstLiveIdx, transitionLabel } = useMemo(() => {
-    if (!filteredPoints.length) {
-      return { chartData: [], firstLiveIdx: -1, transitionLabel: null };
-    }
-
-    const totalDays = filteredPoints.length;
-    const fli = filteredPoints.findIndex(p => !p.isBackfilled);
-
-    const data: ChartPoint[] = filteredPoints.map((p, i) => {
-      const label = formatDateLabel(p.date);
-      const fg = p.fgSmoothed;
-
-      const isBoundaryBackfill = p.isBackfilled && i === fli - 1;
-      const isBoundaryLive     = !p.isBackfilled && i === fli;
-
-      return {
-        rawDate:      p.date,
-        dateLabel:    label,
-        fgAll:        fg,
-        fgBackfill:   (p.isBackfilled || isBoundaryLive) ? fg : null,
-        fgLive:       (!p.isBackfilled || isBoundaryBackfill) ? fg : null,
-        ihsg:         p.ihsgClose,
-        label:        p.label,
-        isBackfilled: p.isBackfilled,
-      };
-    });
-
-    // suppress unused var warning — totalDays used for shape only
-    void totalDays;
-
-    const transLabel = fli > 0 ? data[fli]?.dateLabel ?? null : null;
-    return { chartData: data, firstLiveIdx: fli, transitionLabel: transLabel };
+  // Single unified series — no backfill/live split
+  const chartData = useMemo<ChartPoint[]>(() => {
+    return filteredPoints.map(p => ({
+      rawDate:   p.date,
+      dateLabel: formatDateLabel(p.date),
+      fgAll:     p.fgSmoothed,
+      ihsg:      p.ihsgClose,
+      label:     p.label,
+    }));
   }, [filteredPoints]);
 
   const currentPoint = useMemo(() => {
@@ -267,25 +227,20 @@ export default function FearGreedChart() {
                   : chartData.length > 30 ? Math.floor(chartData.length / 8)
                   : 'preserveStartEnd';
 
-  const hasData     = !loading && !error && chartData.length > 0;
-  const hasBackfill = firstLiveIdx > 0;
-  const hasLive     = firstLiveIdx !== -1;
+  const hasData = !loading && !error && chartData.length > 0;
 
   return (
     <div className="bg-white border border-[#e5e2db] rounded-2xl overflow-hidden">
 
-      {/* ── Header row: label + title + range toggle ──────────────────────── */}
+      {/* ── Header ────────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between px-5 pt-4 pb-3 gap-3 flex-wrap">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
             Sentimen vs Pasar
           </p>
-          <h2 className="text-sm font-bold text-[#0f172a]">
-            Fear &amp; Greed vs IHSG
-          </h2>
+          <h2 className="text-sm font-bold text-[#0f172a]">Fear &amp; Greed vs IHSG</h2>
         </div>
 
-        {/* Range toggle */}
         <div className="flex items-center gap-0.5 bg-[#f8f7f4] border border-[#e5e2db] rounded-lg p-0.5">
           {RANGES.map(r => (
             <button
@@ -327,7 +282,7 @@ export default function FearGreedChart() {
         </div>
       )}
 
-      {/* ── States ────────────────────────────────────────────────────────── */}
+      {/* ── Loading / error / empty ────────────────────────────────────────── */}
       {loading && (
         <div className="h-56 flex items-center justify-center text-[#9ca3af] text-sm px-5 pb-5">
           <span className="animate-pulse">Memuat data…</span>
@@ -340,8 +295,7 @@ export default function FearGreedChart() {
       )}
       {!loading && !error && chartData.length === 0 && (
         <div className="h-56 flex items-center justify-center text-[#9ca3af] text-sm px-5 pb-5 text-center">
-          Belum ada data historis.
-          <br />
+          Belum ada data historis.<br />
           Jalankan <code className="font-mono text-xs">compute_index.py</code> terlebih dahulu.
         </div>
       )}
@@ -352,12 +306,12 @@ export default function FearGreedChart() {
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={chartData} margin={{ top: 4, right: isMobile ? 8 : 52, bottom: 0, left: 0 }}>
 
+              {/* Zone bands */}
               {ZONES.map(z => (
                 <ReferenceArea
                   key={z.label}
                   yAxisId="fg"
-                  y1={z.y1}
-                  y2={z.y2}
+                  y1={z.y1} y2={z.y2}
                   fill={z.fill}
                   fillOpacity={1}
                   label={isMobile ? undefined : {
@@ -371,23 +325,6 @@ export default function FearGreedChart() {
                 />
               ))}
 
-              {hasBackfill && hasLive && transitionLabel && (
-                <ReferenceLine
-                  yAxisId="fg"
-                  x={transitionLabel}
-                  stroke="#e5e2db"
-                  strokeDasharray="3 2"
-                  strokeWidth={1}
-                  label={{
-                    value: 'Live →',
-                    position: 'insideTopRight',
-                    fontSize: 9,
-                    fill: '#9ca3af',
-                    offset: 4,
-                  }}
-                />
-              )}
-
               <CartesianGrid strokeDasharray="3 3" stroke="#f0ede8" vertical={false} />
 
               <XAxis
@@ -397,7 +334,6 @@ export default function FearGreedChart() {
                 axisLine={false}
                 interval={xInterval}
               />
-
               <YAxis
                 yAxisId="fg"
                 domain={[0, 100]}
@@ -407,7 +343,6 @@ export default function FearGreedChart() {
                 width={26}
                 ticks={[0, 25, 50, 75, 100]}
               />
-
               <YAxis
                 yAxisId="ihsg"
                 orientation="right"
@@ -423,7 +358,7 @@ export default function FearGreedChart() {
 
               <Tooltip content={<CustomTooltip />} />
 
-              {/* IHSG — warm muted line, behind F&G */}
+              {/* IHSG — muted warm gray, behind F&G */}
               <Line
                 yAxisId="ihsg"
                 type="monotone"
@@ -436,54 +371,29 @@ export default function FearGreedChart() {
                 opacity={0.8}
               />
 
-              {/* F&G backfilled — dashed, lighter brand blue */}
-              {hasBackfill && (
-                <Line
-                  yAxisId="fg"
-                  type="monotone"
-                  dataKey="fgBackfill"
-                  stroke="#93c5fd"
-                  strokeWidth={2}
-                  strokeDasharray="5 3"
-                  strokeOpacity={0.8}
-                  dot={false}
-                  connectNulls
-                  name="F&G (rekonstruksi)"
-                />
-              )}
-
-              {/* F&G live — solid brand blue */}
+              {/* F&G — single unified teal line */}
               <Line
                 yAxisId="fg"
                 type="monotone"
-                dataKey="fgLive"
-                stroke="#1a56db"
+                dataKey="fgAll"
+                stroke={FG_COLOR}
                 strokeWidth={2.5}
                 dot={false}
                 connectNulls
                 name="Fear & Greed"
-                activeDot={{ r: 4, fill: '#1a56db', stroke: 'white', strokeWidth: 2 }}
+                activeDot={{ r: 4, fill: FG_COLOR, stroke: 'white', strokeWidth: 2 }}
               />
 
             </ComposedChart>
           </ResponsiveContainer>
 
-          {/* ── Legend ──────────────────────────────────────────────────────── */}
+          {/* Legend */}
           <div className="flex flex-wrap items-center justify-between mt-2 px-3 gap-y-1.5">
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-5 border-t-2 border-[#1a56db] rounded" />
+                <span className="inline-block w-5 border-t-2 rounded" style={{ borderColor: FG_COLOR }} />
                 <span className="text-[#6b7280] font-medium">Fear &amp; Greed</span>
               </div>
-              {hasBackfill && (
-                <div className="flex items-center gap-1.5">
-                  <svg width="20" height="2" className="overflow-visible">
-                    <line x1="0" y1="1" x2="20" y2="1"
-                      stroke="#93c5fd" strokeWidth="2" strokeDasharray="5 3" />
-                  </svg>
-                  <span className="text-[#9ca3af]">Rekonstruksi</span>
-                </div>
-              )}
               <div className="flex items-center gap-1.5">
                 <span className="inline-block w-5 border-t border-[#d1cdc7] rounded" />
                 <span className="text-[#9ca3af]">IHSG</span>
@@ -497,9 +407,7 @@ export default function FearGreedChart() {
                     className="inline-block w-2 h-2 rounded-sm"
                     style={{ backgroundColor: z.fill, border: `1px solid ${z.labelColor}40` }}
                   />
-                  <span style={{ color: z.labelColor + 'bb' }}>
-                    {z.label.split(' ')[0]}
-                  </span>
+                  <span style={{ color: z.labelColor + 'bb' }}>{z.label.split(' ')[0]}</span>
                 </span>
               ))}
             </div>

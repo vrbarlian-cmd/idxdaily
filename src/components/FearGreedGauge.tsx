@@ -200,15 +200,17 @@ export default function FearGreedGauge({
         </div>
       </div>
 
-      {/* Gauge SVG */}
-      <GaugeSVG score={displayScore} isNull={data.score == null} />
+      {/* Gauge SVG — capped width so it doesn't balloon on mobile */}
+      <div className="max-w-[260px] mx-auto">
+        <GaugeSVG score={displayScore} isNull={data.score == null} />
+      </div>
 
       {/* Score + label */}
-      <div className="text-center -mt-2 mb-4">
-        <p className={`text-6xl font-black leading-none tabular-nums ${text}`}>
+      <div className="text-center -mt-1 mb-3">
+        <p className={`text-4xl font-black leading-none tabular-nums ${text}`}>
           {data.score != null ? Math.round(data.score) : '—'}
         </p>
-        <p className={`mt-2 text-xs font-semibold uppercase tracking-widest ${text}`}>
+        <p className={`mt-1.5 text-[11px] font-semibold uppercase tracking-widest ${text}`}>
           {data.label}
         </p>
       </div>

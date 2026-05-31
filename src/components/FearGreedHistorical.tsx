@@ -11,7 +11,7 @@ function HistCell({ period, entry }: { period: string; entry: HistoricalEntry })
       <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-1.5">
         {period}
       </p>
-      <p className={`text-3xl font-black leading-none tabular-nums mb-1 ${
+      <p className={`text-2xl font-black leading-none tabular-nums mb-1 ${
         entry.value != null ? text : 'text-[#d1cdc7]'
       }`}>
         {entry.value != null ? Math.round(entry.value) : '—'}

@@ -52,6 +52,15 @@ model News {
   @@map("articles")
 }
 
+model SearchLog {
+  id           String   @id @default(cuid())
+  tickerSymbol String   @map("ticker_symbol")
+  searchedAt   DateTime @default(now()) @map("searched_at")
+
+  @@index([searchedAt])
+  @@map("search_log")
+}
+
 model TickerMention {
   articleId       String  @map("article_id")
   tickerId        String  @map("ticker_id")

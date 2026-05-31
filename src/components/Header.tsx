@@ -22,11 +22,11 @@ function MarketPill({
     change == null ? '' : (change >= 0 ? '+' : '') + change.toFixed(2) + '%';
 
   return (
-    <div className="flex items-center gap-1.5 px-1">
-      <span className="text-[11px] text-[#9ca3af] font-medium">{label}</span>
-      <span className="text-[11px] font-mono font-semibold text-[#0f172a]">{value}</span>
+    <div className="flex items-center gap-1.5 px-2">
+      <span className="text-xs text-[#9ca3af] font-medium">{label}</span>
+      <span className="text-sm font-mono font-bold text-[#0f172a]">{value}</span>
       {changeStr && (
-        <span className={`text-[11px] font-mono font-medium ${changeClass}`}>{changeStr}</span>
+        <span className={`text-xs font-mono font-semibold ${changeClass}`}>{changeStr}</span>
       )}
     </div>
   );
@@ -40,13 +40,13 @@ export default function Header({ market }: HeaderProps) {
 
   return (
     <header className="bg-white border-b border-[#e5e2db] sticky top-0 z-50">
-      <div className="max-w-5xl mx-auto px-4 h-13 flex items-center justify-between gap-4">
+      <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between gap-4">
         {/* Brand */}
         <Link
           href="/"
           className="flex items-center hover:opacity-75 transition-opacity flex-shrink-0"
         >
-          <Logo height={36} />
+          <Logo height={48} />
         </Link>
 
         {/* Centre: search */}
@@ -54,7 +54,7 @@ export default function Header({ market }: HeaderProps) {
           <HeaderSearch />
         </div>
 
-        {/* Market pills — borderless, text only */}
+        {/* Market pills */}
         {market && (
           <div className="hidden md:flex items-center divide-x divide-[#e5e2db] flex-shrink-0">
             <MarketPill

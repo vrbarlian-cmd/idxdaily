@@ -1,4 +1,5 @@
 import { computeFearGreed, getHistoricalValues } from '@/lib/fearGreed';
+import { getPopularTickers }                     from '@/lib/popularTickers';
 import FearGreedGauge      from '@/components/FearGreedGauge';
 import FearGreedHistorical from '@/components/FearGreedHistorical';
 import FearGreedChart      from '@/components/FearGreedChart';
@@ -10,9 +11,10 @@ import HeroSearch          from '@/components/HeroSearch';
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [fgData, histData] = await Promise.all([
+  const [fgData, histData, popularTickers] = await Promise.all([
     computeFearGreed(7),
     getHistoricalValues(),
+    getPopularTickers(),
   ]);
 
   // Source of truth: stored smoothed_score from fear_greed_index (written by
@@ -25,7 +27,7 @@ export default async function Home() {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      <HeroSearch />
+      <HeroSearch popularTickers={popularTickers} />
 
       <main className="max-w-5xl mx-auto px-4 py-6 space-y-4">
 

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // POST /api/search-log  { symbol: "BBCA" }
 // Fire-and-forget — logs ticker searches for Populer ranking.
 // Only stores symbol + timestamp. No user identifiers.

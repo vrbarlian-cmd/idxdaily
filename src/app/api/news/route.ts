@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
+export const dynamic = 'force-dynamic';
+
 // GET /api/news?ticker=BBRI&limit=30&sentiment=BULLISH
 // GET /api/news?a_grade=true            — high-impact enriched articles (no ticker required)
 export async function GET(request: NextRequest) {

@@ -234,34 +234,6 @@ export default function FearGreedGauge({
         </span>
       </div>
 
-      {/* Sentiment bars (bullish / neutral / bearish breakdown) */}
-      {data.articleCount > 0 && (
-        <div className="mb-3 px-1">
-          <div className="flex h-2 rounded-full overflow-hidden gap-px">
-            <div
-              className="bg-emerald-500 transition-all rounded-l-full"
-              style={{ width: `${data.bullishPct}%` }}
-              title={`Bullish ${data.bullishPct}%`}
-            />
-            <div
-              className="bg-slate-300 transition-all"
-              style={{ width: `${data.neutralPct}%` }}
-              title={`Neutral ${data.neutralPct}%`}
-            />
-            <div
-              className="bg-red-500 transition-all rounded-r-full"
-              style={{ width: `${data.bearishPct}%` }}
-              title={`Bearish ${data.bearishPct}%`}
-            />
-          </div>
-          <div className="flex justify-between text-xs text-stone-400 mt-1 px-0.5">
-            <span className="text-emerald-600 font-medium">{data.bullishPct}% Bull</span>
-            <span>{data.neutralPct}% Net</span>
-            <span className="text-red-500 font-medium">{data.bearishPct}% Bear</span>
-          </div>
-        </div>
-      )}
-
       {/* Raw vs smoothed */}
       {data.rawScore != null && data.score != null && Math.abs(data.rawScore - data.score) > 0.5 && (
         <p className="text-center text-xs text-stone-400 mb-2">

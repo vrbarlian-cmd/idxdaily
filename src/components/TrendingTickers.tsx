@@ -27,57 +27,90 @@ function barColor(s: string) {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default async function TrendingTickers({ currentTicker }: { currentTicker?: string }) {
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 7);
+  const now       = Date.now();
+  const cutoff7d  = new Date(now - 7  * 24 * 60 * 60 * 1000);
+  const cutoff24h = new Date(now - 24 * 60 * 60 * 1000);
+  const cutoff48h = new Date(now - 48 * 60 * 60 * 1000);
 
-  const groups = await prisma.news.groupBy({
-    by: ['tickerId'],
-    where: { publishedAt: { gte: cutoff }, tickerId: { not: null } },
-    _count: { id: true },
-    orderBy: { _count: { id: 'desc' } },
-    take: 10,
+  // Use tickerMention table (same as ticker page) — high+medium confidence only
+  const mentions = await prisma.tickerMention.findMany({
+    where: {
+      matchConfidence: { in: ['high', 'medium'] },
+      article: { publishedAt: { gte: cutoff7d } },
+    },
+    select: {
+      tickerId:  true,
+      sentiment: true,
+      article: {
+        select: {
+          publishedAt: true,
+          aiSummary:   true,
+        },
+      },
+    },
   });
 
-  const tickerIds = groups.map(g => g.tickerId).filter((id): id is string => id !== null);
+  // Compute recency-weighted score + dominant sentiment per ticker
+  // Weights: 24h articles = 3×, 24-48h = 1.5×, older = 1×
+  type TickerStat = {
+    score:      number;                    // recency-weighted rank score
+    rawCount:   number;                    // raw 7d article count (for display)
+    sentiments: Record<string, number>;    // weighted sentiment votes
+    enriched:   boolean;
+  };
 
-  const articles = await prisma.news.findMany({
-    where: { tickerId: { in: tickerIds }, publishedAt: { gte: cutoff } },
-    select: { tickerId: true, sentiment: true, impactScore: true, aiSummary: true },
-  });
+  const tickerStats = new Map<string, TickerStat>();
 
-  const tickerStats = new Map<string, { sentiments: Record<string, number>; enriched: number }>();
-  for (const a of articles) {
-    if (!a.tickerId) continue;
-    if (!tickerStats.has(a.tickerId)) tickerStats.set(a.tickerId, { sentiments: {}, enriched: 0 });
-    const s = tickerStats.get(a.tickerId)!;
-    if (a.aiSummary) {
-      s.sentiments[a.sentiment] = (s.sentiments[a.sentiment] ?? 0) + 1;
-      s.enriched++;
+  for (const m of mentions) {
+    if (!m.tickerId) continue;
+
+    const pub = m.article?.publishedAt;
+    let weight = 1.0;
+    if (pub) {
+      if (pub >= cutoff24h)      weight = 3.0;
+      else if (pub >= cutoff48h) weight = 1.5;
+    }
+
+    if (!tickerStats.has(m.tickerId)) {
+      tickerStats.set(m.tickerId, { score: 0, rawCount: 0, sentiments: {}, enriched: false });
+    }
+    const stat = tickerStats.get(m.tickerId)!;
+    stat.score    += weight;
+    stat.rawCount += 1;
+
+    // Only count sentiment when article is AI-enriched (same condition as ticker page)
+    if (m.article?.aiSummary && m.sentiment) {
+      stat.sentiments[m.sentiment] = (stat.sentiments[m.sentiment] ?? 0) + 1;
+      stat.enriched = true;
     }
   }
 
-  const dominant = (tid: string) => {
-    const m = tickerStats.get(tid)?.sentiments ?? {};
-    const entries = Object.entries(m);
-    if (!entries.length) return 'NEUTRAL';
-    return entries.sort((a, b) => b[1] - a[1])[0][0];
-  };
+  // Sort by recency-weighted score, take top 10
+  const topEntries = Array.from(tickerStats.entries())
+    .sort((a, b) => b[1].score - a[1].score)
+    .slice(0, 10);
 
-  const hasEnriched = (tid: string) => (tickerStats.get(tid)?.enriched ?? 0) > 0;
+  const tickerIds = topEntries.map(([id]) => id);
 
   const tickers = await prisma.ticker.findMany({
-    where: { id: { in: tickerIds } },
+    where:  { id: { in: tickerIds } },
     select: { id: true, symbol: true, name: true },
   });
   const tickerMap = new Map(tickers.map(t => [t.id, t]));
 
-  const items = groups
-    .filter((g): g is typeof g & { tickerId: string } => g.tickerId !== null)
-    .map(g => ({
-      ticker:    tickerMap.get(g.tickerId),
-      count:     g._count.id,
-      sentiment: dominant(g.tickerId),
-      enriched:  hasEnriched(g.tickerId),
+  // Dominant sentiment = most-voted sentiment among enriched mentions
+  const dominant = (sentiments: Record<string, number>): string => {
+    const entries = Object.entries(sentiments);
+    if (!entries.length) return 'NEUTRAL';
+    return entries.sort((a, b) => b[1] - a[1])[0][0];
+  };
+
+  const items = topEntries
+    .map(([id, stat]) => ({
+      ticker:    tickerMap.get(id),
+      count:     stat.rawCount,
+      sentiment: dominant(stat.sentiments),
+      enriched:  stat.enriched,
     }))
     .filter((i): i is typeof i & { ticker: NonNullable<typeof i.ticker> } => !!i.ticker);
 

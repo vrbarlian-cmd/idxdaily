@@ -1,9 +1,9 @@
 import { prisma } from '@/lib/prisma';
 
-const FALLBACK = ['BBCA', 'BBRI', 'BMRI', 'BBNI', 'GOTO', 'TLKM', 'ASII', 'BUMI', 'PTRO'];
+const FALLBACK = ['BBCA', 'BBRI', 'BMRI', 'BBNI', 'GOTO', 'TLKM', 'ASII', 'BUMI'];
 const MIN_SEARCHES = 20; // switch from fallback to real data once we have enough signal
 const WINDOW_DAYS  = 7;
-const TOP_N        = 9;
+const TOP_N        = 8;
 
 /**
  * Returns the top N most-searched tickers in the last WINDOW_DAYS days.

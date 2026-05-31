@@ -489,34 +489,37 @@ export async function getHistoricalValues(): Promise<HistoricalValues> {
   const nowRow   = liveRows[0] ?? rows[0];
   const now: HistoricalEntry = { value: nowRow.smoothed_score, label: nowRow.label };
 
+  // Normalize to UTC midnight so comparisons are consistent regardless of server TZ
   const todayMidnight = new Date();
-  todayMidnight.setHours(0, 0, 0, 0);
+  todayMidnight.setUTCHours(0, 0, 0, 0);
 
-  const findNearest = (daysAgo: number, toleranceDays = 4): HistoricalEntry => {
-    const targetMs = todayMidnight.getTime() - daysAgo * 86_400_000;
-    let best: (typeof rows)[0] | null = null;
-    let bestDiff = Infinity;
+  /**
+   * Returns the most-recent row whose date falls on or before `cutoffDays` days ago.
+   * "Most-recent before the cutoff" is more robust than "nearest to target" because
+   * it never returns NO_HIST as long as ANY row older than the cutoff exists.
+   * rows is already sorted DESC, so the first match is the most recent qualifying row.
+   */
+  const findMostRecentBefore = (cutoffDays: number): HistoricalEntry => {
+    // cutoffMs = midnight UTC exactly `cutoffDays` days ago
+    const cutoffMs = todayMidnight.getTime() - cutoffDays * 86_400_000;
 
     for (const row of rows) {
       const rowMs = row.date instanceof Date
         ? row.date.getTime()
         : new Date(row.date as unknown as string).getTime();
 
-      // Exclude today's row when looking for "yesterday" or further
-      if (daysAgo >= 1 && rowMs >= todayMidnight.getTime()) continue;
-
-      const diff = Math.abs(rowMs - targetMs);
-      if (diff < bestDiff) { bestDiff = diff; best = row; }
+      // Accept rows on or before the cutoff (i.e. at most `cutoffDays` ago)
+      if (rowMs <= cutoffMs) {
+        return { value: row.smoothed_score, label: row.label };
+      }
     }
-
-    if (!best || bestDiff > toleranceDays * 86_400_000) return NO_HIST;
-    return { value: best.smoothed_score, label: best.label };
+    return NO_HIST;
   };
 
   return {
     now,
-    yesterday: findNearest(1, 5),   // 5-day tolerance handles long holiday weekends
-    lastWeek:  findNearest(7, 4),
-    lastMonth: findNearest(30, 5),
+    yesterday: findMostRecentBefore(1),   // most recent row that is at least 1 day old
+    lastWeek:  findMostRecentBefore(7),
+    lastMonth: findMostRecentBefore(30),
   };
 }

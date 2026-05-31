@@ -1,16 +1,16 @@
 """
-DRY-RUN duplicate detection — headline similarity deduplication.
+DRY-RUN duplicate detection - headline similarity deduplication.
 
 Algorithm:
   1. Normalize each article title via shared dedup module (same logic as ingest).
-  2. Group by (ticker, 6-hour bucket) — mirrors the ingest-time window.
+  2. Group by (ticker, 6-hour bucket) - mirrors the ingest-time window.
   3. Within each group compare normalised titles:
-     a. Exact normalised title  → duplicate
-     b. Long common prefix ≥ 60 chars → duplicate
+     a. Exact normalised title match
+     b. Long common prefix >= 60 chars
      c. Jaccard word-set:
-        - Cross-source ≥ 0.80
-        - Same-source  ≥ 0.90   (BUVA emitennews same-domain case)
-  4. Keeper = highest source tier → earliest date → has body → has summary
+        - Cross-source >= 0.80
+        - Same-source  >= 0.90   (BUVA emitennews same-domain case)
+  4. Keeper = highest source tier, then earliest date, then has body/summary
   5. Print FULL dry-run report. NO deletes.
 
 Runs from project root:
@@ -158,9 +158,9 @@ async def main() -> None:
 
         # ── Full report ───────────────────────────────────────────────────────
         print(f"\n{'='*80}")
-        print(f"  DRY-RUN REPORT — {len(dup_clusters)} duplicate clusters")
+        print(f"  DRY-RUN REPORT - {len(dup_clusters)} duplicate clusters")
         print(f"  Keeper = highest-tier source (Tier1>Tier2>Tier3), then earliest date")
-        print(f"  Cross-source threshold: Jaccard ≥ 0.80 | Same-source: ≥ 0.90")
+        print(f"  Cross-source threshold: Jaccard >= 0.80 | Same-source >= 0.90")
         print(f"{'='*80}")
 
         for i, (cluster_id, cluster) in enumerate(sorted(
@@ -177,7 +177,7 @@ async def main() -> None:
                 t for a in cluster for t in a["tickers"] if t != "_macro_"
             }))
             tier_k = source_tier(keeper.get("source"))
-            print(f"\n  [{i}] Cluster — {len(cluster)} arts — tickers: {tickers_str or '(macro)'}")
+            print(f"\n  [{i}] Cluster - {len(cluster)} arts - tickers: {tickers_str or '(macro)'}")
             print(f"       KEEP [T{tier_k}]: [{keeper['pub_date']}] [{keeper['source'][:25]}] "
                   f"{keeper['title'][:65]}")
             if keeper.get("has_body"):    print(f"               has_body=YES")

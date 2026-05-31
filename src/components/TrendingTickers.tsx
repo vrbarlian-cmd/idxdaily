@@ -1,39 +1,27 @@
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 
-// ── Sentiment chip ────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function SentimentChip({ sentiment, enriched }: { sentiment: string; enriched: boolean }) {
-  if (!enriched) {
-    return (
-      <span className="text-xs text-stone-400 bg-stone-100 rounded-full px-2 py-0.5 font-medium">
-        —
-      </span>
-    );
-  }
-  if (sentiment === 'BULLISH') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5 font-semibold">
-        <TrendingUp className="w-3 h-3" />
-        Bull
-      </span>
-    );
-  }
-  if (sentiment === 'BEARISH') {
-    return (
-      <span className="inline-flex items-center gap-1 text-xs text-red-600 bg-red-50 border border-red-200 rounded-full px-2 py-0.5 font-semibold">
-        <TrendingDown className="w-3 h-3" />
-        Bear
-      </span>
-    );
-  }
-  return (
-    <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-2 py-0.5 font-medium">
-      <Minus className="w-3 h-3" />
-      Net
-    </span>
-  );
+function sentimentDot(s: string) {
+  if (s === 'BULLISH') return 'bg-emerald-500';
+  if (s === 'BEARISH') return 'bg-red-500';
+  return 'bg-amber-400';
+}
+function sentimentText(s: string) {
+  if (s === 'BULLISH') return 'text-emerald-700';
+  if (s === 'BEARISH') return 'text-red-600';
+  return 'text-amber-700';
+}
+function sentimentLabel(s: string) {
+  if (s === 'BULLISH') return 'Bull';
+  if (s === 'BEARISH') return 'Bear';
+  return 'Net';
+}
+function barColor(s: string) {
+  if (s === 'BULLISH') return 'bg-emerald-400';
+  if (s === 'BEARISH') return 'bg-red-400';
+  return 'bg-amber-400';
 }
 
 // ── Main component ────────────────────────────────────────────────────────────
@@ -62,8 +50,6 @@ export default async function TrendingTickers({ currentTicker }: { currentTicker
     if (!a.tickerId) continue;
     if (!tickerStats.has(a.tickerId)) tickerStats.set(a.tickerId, { sentiments: {}, enriched: 0 });
     const s = tickerStats.get(a.tickerId)!;
-    // Only count enriched articles in sentiment distribution — unenriched articles
-    // sit at the DB default 'NEUTRAL' and would falsely inflate the neutral count.
     if (a.aiSummary) {
       s.sentiments[a.sentiment] = (s.sentiments[a.sentiment] ?? 0) + 1;
       s.enriched++;
@@ -97,73 +83,85 @@ export default async function TrendingTickers({ currentTicker }: { currentTicker
 
   const maxCount = Math.max(...items.map(i => i.count), 1);
 
-  function barColor(s: string) {
-    if (s === 'BULLISH') return 'bg-emerald-400';
-    if (s === 'BEARISH') return 'bg-red-400';
-    return 'bg-amber-400';
-  }
-
   return (
-    <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="w-4 h-4 text-emerald-500" />
-          <p className="text-sm font-bold text-stone-800">Trending Tickers</p>
+    <section>
+
+      {/* Section header */}
+      <div className="flex items-center justify-between mb-3">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
+            7 Hari Terakhir
+          </p>
+          <h2 className="text-sm font-bold text-[#0f172a]">Trending Tickers</h2>
         </div>
-        <p className="text-xs text-stone-400">7d · volume</p>
+        <span className="text-[11px] text-[#9ca3af]">volume berita</span>
       </div>
 
+      <hr className="border-[#e5e2db] mb-4" />
+
       {items.length === 0 ? (
-        <p className="text-stone-400 text-sm">Belum ada data.</p>
+        <p className="text-[#9ca3af] text-sm py-4">Belum ada data.</p>
       ) : (
-        <div className="space-y-1.5">
+        /* Horizontal scroll strip */
+        <div
+          className="flex gap-2.5 overflow-x-auto pb-1"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {items.map(({ ticker, count, sentiment, enriched }) => {
-            const isActive = currentTicker === ticker.symbol;
-            const widthPct = Math.max(8, Math.round((count / maxCount) * 100));
+            const isActive  = currentTicker === ticker.symbol;
+            const widthPct  = Math.max(10, Math.round((count / maxCount) * 100));
 
             return (
               <Link
                 key={ticker.id}
                 href={`/saham/${ticker.symbol}`}
-                className={`group flex items-center gap-3 py-2 px-2 rounded-xl transition-all ${
-                  isActive
-                    ? 'bg-brand-50 border border-brand-100'
-                    : 'hover:bg-stone-50 border border-transparent'
-                }`}
+                className={`
+                  group flex-shrink-0 w-36 rounded-xl border p-3 transition-all duration-150
+                  hover:shadow-sm
+                  ${isActive
+                    ? 'bg-blue-50 border-blue-200'
+                    : 'bg-white border-[#e5e2db] hover:border-[#d1cdc7]'}
+                `}
               >
-                {/* Ticker badge */}
-                <span className={`inline-flex items-center justify-center w-12 h-7 rounded-lg font-mono text-xs font-bold flex-shrink-0 transition-colors ${
-                  isActive
-                    ? 'bg-brand-600 text-white'
-                    : 'bg-stone-800 text-white group-hover:bg-stone-700'
-                }`}>
-                  {ticker.symbol}
-                </span>
-
-                {/* Name + bar */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs text-stone-600 truncate mb-1">{ticker.name}</p>
-                  {/* Volume bar */}
-                  <div className="h-1 bg-stone-100 rounded-full overflow-hidden">
-                    <div
-                      className={`h-1 rounded-full transition-all ${barColor(sentiment)}`}
-                      style={{ width: `${widthPct}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Right side */}
-                <div className="flex items-center gap-1.5 flex-shrink-0">
-                  <SentimentChip sentiment={sentiment} enriched={enriched} />
-                  <span className="text-xs text-stone-400 tabular-nums w-5 text-right font-medium">
+                {/* Symbol + count */}
+                <div className="flex items-start justify-between mb-1.5">
+                  <span className={`font-mono text-xs font-bold ${
+                    isActive ? 'text-[#1a56db]' : 'text-[#0f172a] group-hover:text-[#1a56db]'
+                  } transition-colors`}>
+                    {ticker.symbol}
+                  </span>
+                  <span className="text-[10px] text-[#9ca3af] tabular-nums font-medium">
                     {count}
                   </span>
                 </div>
+
+                {/* Company name */}
+                <p className="text-[11px] text-[#6b7280] truncate mb-2 leading-tight">
+                  {ticker.name}
+                </p>
+
+                {/* Volume bar */}
+                <div className="h-1 bg-[#f0ede8] rounded-full overflow-hidden mb-2">
+                  <div
+                    className={`h-1 rounded-full transition-all ${barColor(sentiment)}`}
+                    style={{ width: `${widthPct}%` }}
+                  />
+                </div>
+
+                {/* Sentiment */}
+                {enriched ? (
+                  <div className={`flex items-center gap-1 text-[10px] font-semibold ${sentimentText(sentiment)}`}>
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sentimentDot(sentiment)}`} />
+                    {sentimentLabel(sentiment)}
+                  </div>
+                ) : (
+                  <span className="text-[10px] text-[#9ca3af]">—</span>
+                )}
               </Link>
             );
           })}
         </div>
       )}
-    </div>
+    </section>
   );
 }

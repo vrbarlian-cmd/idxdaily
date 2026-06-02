@@ -109,6 +109,10 @@ def normalize_source(source: str | None) -> str:
         result = "idxchannel"
     elif "emiten" in s:
         result = "emitenews"
+    elif "bareksa" in s:
+        result = "bareksa"
+    elif "dunia energi" in s:
+        result = "duniaenergi"
     else:
         result = s
     _NORM_SOURCE_CACHE[source] = result

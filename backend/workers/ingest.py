@@ -717,7 +717,9 @@ async def run_once(
     # ── Semantic dedup — same story from multiple sources ──────────────────
     # Cross-source: Jaccard ≥ 0.80 within 6h window → keep highest-tier source
     # Same-source:  Jaccard ≥ 0.90 within 6h window → keep earliest
-    from .dedup import dedup_batch
+    from .dedup import dedup_batch, normalise as _normalise, \
+                       word_set as _word_set, jaccard as _jaccard, \
+                       normalize_source as _norm_src
     unique = dedup_batch(unique, ticker_key="detected_ticker")
     print(f"[ingest] {len(unique)} articles after semantic dedup")
 
@@ -745,7 +747,35 @@ async def run_once(
         ticker_hit_counts: dict[str, int] = {}
         confidence_counts: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
 
+        # ── Inter-batch dedup: load recently-stored titles so articles that
+        # arrived via RSS in run N are caught when GN brings the same story in
+        # run N+1.  dedup_batch() only deduplicates within a single scrape
+        # batch; this closes the cross-batch gap using the same Jaccard logic.
+        _recent_rows = await conn.fetch(
+            "SELECT title, source FROM articles "
+            "WHERE published_at >= NOW() - INTERVAL '6 hours'"
+        )
+        _recent_norms: list[tuple] = [
+            (_normalise(r["title"]), _word_set(_normalise(r["title"])), r["source"])
+            for r in _recent_rows
+        ]
+        print(f"[ingest] Inter-batch dedup anchor: {len(_recent_norms)} articles in last 6h")
+
         for art in unique:
+            # Inter-batch title similarity check against already-stored articles
+            _art_norm  = _normalise(art["title"])
+            _art_words = _word_set(_art_norm)
+            _is_ibd    = False
+            for _db_norm, _db_words, _db_src in _recent_norms:
+                _same_src  = _norm_src(art.get("source")) == _norm_src(_db_src)
+                _threshold = 0.90 if _same_src else 0.80
+                if _art_norm == _db_norm or _jaccard(_art_words, _db_words) >= _threshold:
+                    _is_ibd = True
+                    break
+            if _is_ibd:
+                skipped_dup += 1
+                continue
+
             if await article_exists(conn, art["url"]):
                 skipped_dup += 1
                 continue
@@ -813,30 +843,70 @@ async def run_once(
         await conn.close()
 
 
+# ---------------------------------------------------------------------------
+# Single-instance lock (prevents concurrent ingest runs)
+# ---------------------------------------------------------------------------
+
+import os as _os
+import sys as _sys
+
+_LOCKFILE = PROJECT_ROOT / "logs" / "ingest.lock"
+
+
+def _acquire_lock() -> None:
+    """
+    Write a PID lockfile so a second ingest process can detect the first
+    and exit cleanly instead of running concurrently.
+
+    If the lockfile exists but the recorded PID is no longer alive (stale
+    lock from a crash), the old file is silently overwritten.
+    """
+    if _LOCKFILE.exists():
+        try:
+            pid = int(_LOCKFILE.read_text().strip())
+            _os.kill(pid, 0)          # raises OSError if process is dead
+            print(f"[ingest] Already running (PID {pid}) — exiting to avoid concurrent run.")
+            _sys.exit(0)
+        except (OSError, ValueError):
+            pass  # stale lock — process gone or file corrupt, proceed
+    _LOCKFILE.write_text(str(_os.getpid()))
+
+
+def _release_lock() -> None:
+    try:
+        _LOCKFILE.unlink()
+    except FileNotFoundError:
+        pass
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="IDXDaily ingest worker")
-    parser.add_argument("--once", action="store_true")
-    parser.add_argument("--limit", type=int, default=50,
-                        help="Max items per RSS feed (default: 50)")
-    parser.add_argument("--ticker-tags", action="store_true",
-                        help="Also scrape per-ticker Detik pages (ticker_tag_enabled only)")
-    parser.add_argument("--google-news", action="store_true",
-                        help="Fetch Google News RSS per ticker (see --gn-tier for scope)")
-    parser.add_argument(
-        "--gn-tier",
-        choices=["tag", "big", "small", "all"],
-        default="tag",
-        help=(
-            "Which tickers to query for Google News. "
-            "'tag' = tag-enabled only (~94 tickers, default); "
-            "'big' = tickers with market_cap data, largest first; "
-            "'small' = tickers with no market_cap (long-tail); "
-            "'all' = every ticker in DB, sorted by market_cap DESC. "
-            "Recommended schedule: --gn-tier big every 2h, --gn-tier small once daily."
-        ),
-    )
-    args = parser.parse_args()
-    asyncio.run(run_once(args.limit, args.ticker_tags, args.google_news, args.gn_tier))
+    _acquire_lock()
+    try:
+        parser = argparse.ArgumentParser(description="IDXDaily ingest worker")
+        parser.add_argument("--once", action="store_true")
+        parser.add_argument("--limit", type=int, default=50,
+                            help="Max items per RSS feed (default: 50)")
+        parser.add_argument("--ticker-tags", action="store_true",
+                            help="Also scrape per-ticker Detik pages (ticker_tag_enabled only)")
+        parser.add_argument("--google-news", action="store_true",
+                            help="Fetch Google News RSS per ticker (see --gn-tier for scope)")
+        parser.add_argument(
+            "--gn-tier",
+            choices=["tag", "big", "small", "all"],
+            default="tag",
+            help=(
+                "Which tickers to query for Google News. "
+                "'tag' = tag-enabled only (~94 tickers, default); "
+                "'big' = tickers with market_cap data, largest first; "
+                "'small' = tickers with no market_cap (long-tail); "
+                "'all' = every ticker in DB, sorted by market_cap DESC. "
+                "Recommended schedule: --gn-tier big every 2h, --gn-tier small once daily."
+            ),
+        )
+        args = parser.parse_args()
+        asyncio.run(run_once(args.limit, args.ticker_tags, args.google_news, args.gn_tier))
+    finally:
+        _release_lock()
 
 
 if __name__ == "__main__":

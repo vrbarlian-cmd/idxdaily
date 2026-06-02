@@ -45,6 +45,7 @@ if exist "%STAMP%" (
 echo [%DATE% %TIME%] Off-hours ingest (RSS+HTML, no Google News)... >> "%LOGFILE%"
 python -m backend.workers.ingest >> "%LOGFILE%" 2>&1
 python -m backend.workers.enrich --drain --batch 100 --drain-timeout 10 >> "%LOGFILE%" 2>&1
+python -m backend.workers.compute_index >> "%LOGFILE%" 2>&1
 echo [%DATE% %TIME%] Off-hours run finished. >> "%LOGFILE%"
 echo. > "%STAMP%"
 exit /b 0
@@ -53,5 +54,6 @@ exit /b 0
 echo [%DATE% %TIME%] Market-hours ingest (GN+RSS+HTML)... >> "%LOGFILE%"
 python -m backend.workers.ingest --google-news --gn-tier tag >> "%LOGFILE%" 2>&1
 python -m backend.workers.enrich --drain --batch 150 --drain-timeout 8 >> "%LOGFILE%" 2>&1
+python -m backend.workers.compute_index >> "%LOGFILE%" 2>&1
 echo [%DATE% %TIME%] Market-hours run finished. >> "%LOGFILE%"
 exit /b 0

@@ -13,9 +13,11 @@
 # All tasks run HIDDEN (no CMD window) via wscript.exe + run_hidden.vbs.
 # Output is still written to logs\ as defined in each .bat file.
 
-$projectRoot = "C:\Users\Vito\OneDrive\Documents\AI News"
-$scriptsDir  = "$projectRoot\scripts"
-$vbsPath     = "$scriptsDir\run_hidden.vbs"
+$projectRoot  = "C:\Users\Vito\OneDrive\Documents\AI News"
+$scriptsDir   = "$projectRoot\scripts"
+$vbsPath      = "$scriptsDir\run_hidden.vbs"
+# Domain-qualified username ("PC\Vito") — required for SessionStateChange trigger to fire.
+$qualifiedUser = $env:USERDOMAIN + "\" + $env:USERNAME
 
 New-Item -ItemType Directory -Force -Path "$projectRoot\logs" | Out-Null
 
@@ -59,7 +61,7 @@ function Register-BatTask {
                     -WakeToRun:$false `
                     -MultipleInstances IgnoreNew
     $principal = New-ScheduledTaskPrincipal `
-                    -UserId $env:USERNAME `
+                    -UserId $qualifiedUser `
                     -LogonType Interactive `
                     -RunLevel Highest
     $task = Register-ScheduledTask `
@@ -94,7 +96,7 @@ try {
     $folder  = $svc.GetFolder("\")
     $taskDef = $svc.NewTask(0)
 
-    $taskDef.Principal.UserId    = $env:USERNAME
+    $taskDef.Principal.UserId    = $qualifiedUser
     $taskDef.Principal.LogonType = 3   # TASK_LOGON_INTERACTIVE_TOKEN
     $taskDef.Principal.RunLevel  = 1   # TASK_RUNLEVEL_HIGHEST
 
@@ -122,7 +124,7 @@ try {
 } catch {
     Write-Host "  FAIL: IDXDaily_Catchup (COM) - $_" -ForegroundColor Red
     Write-Host "  Fallback: AtLogon trigger..." -ForegroundColor Yellow
-    $t2fb = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
+    $t2fb = New-ScheduledTaskTrigger -AtLogOn -User $qualifiedUser
     Register-BatTask "IDXDaily_Catchup" "$scriptsDir\run_catchup.bat" $t2fb `
         "Catch-up on login/unlock (fallback trigger): ingest+enrich+compute_index. Hidden via run_hidden.vbs."
 }

@@ -6,7 +6,12 @@
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
-html, body {
+html {
+  /* overflow-x must NOT be set on <html> — it breaks position:sticky on iOS Safari */
+  box-sizing: border-box;
+}
+
+body {
   background: rgb(250 250 249); /* stone-50 */
   color: rgb(28 25 23);         /* stone-900 */
   font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,

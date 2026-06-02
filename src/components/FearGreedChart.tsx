@@ -260,7 +260,7 @@ export default function FearGreedChart() {
 
       {/* ── Stats strip ───────────────────────────────────────────────────── */}
       {hasData && (
-        <div className="flex items-center border-t border-[#f0ede8] divide-x divide-[#f0ede8] py-2.5">
+        <div className="flex flex-wrap items-center border-t border-[#f0ede8] py-2.5 gap-y-1.5 divide-x divide-[#f0ede8]">
           <StatItem
             label="Now"
             value={currentFg != null ? Math.round(currentFg) : null}
@@ -431,7 +431,7 @@ export default function FearGreedChart() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5 text-[10px]">
+            <div className="hidden sm:flex items-center gap-1.5 text-[10px]">
               {ZONES.map(z => (
                 <span key={z.label} className="flex items-center gap-0.5" title={z.label}>
                   <span

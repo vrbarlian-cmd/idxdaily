@@ -122,7 +122,7 @@ export default function NewsCard({
 
       {/* AI Summary */}
       {news.aiSummary && (
-        <p className="text-[14px] text-[#0f172a] leading-[1.6] mb-3">
+        <p className="text-[13px] text-[#374151] leading-[1.6] mb-3">
           {news.aiSummary}
         </p>
       )}
@@ -130,7 +130,7 @@ export default function NewsCard({
       {/* Impact bar */}
       <div className="mb-3">
         <div className="flex items-baseline justify-between mb-1.5">
-          <span className="text-[11px] text-[#9ca3af] uppercase tracking-wide">Skor Dampak AI</span>
+          <span className="text-[11px] text-[#9ca3af] uppercase tracking-wide">Dampak AI</span>
           <span className="text-[14px] font-medium text-[#374151]">
             {news.impactScore.toFixed(1)}
             <span className="text-[12px] font-normal text-[#9ca3af]">/10</span>

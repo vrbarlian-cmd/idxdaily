@@ -58,7 +58,7 @@ function PubDate({ date }: { date: Date | null }) {
     });
     return <span className="text-[11px] text-[#9ca3af] tabular-nums">{wib} WIB</span>;
   }
-  const label = format(date, 'd MMM yyyy', { locale: localeId });
+  const label = format(date, 'd MMM', { locale: localeId });
   const ago   = formatDistanceToNow(date, { addSuffix: true, locale: localeId });
   return (
     <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">

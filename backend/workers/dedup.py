@@ -78,6 +78,43 @@ def source_tier(source: str | None) -> int:
     return 3
 
 
+_NORM_SOURCE_CACHE: dict[str, str] = {}
+
+
+def normalize_source(source: str | None) -> str:
+    """
+    Collapse publisher name variants to a canonical key for same-source detection.
+
+    Handles cases like "Detik Finance" vs "detikFinance", "Katadata" vs
+    "Katadata.co.id", "CNBC Indonesia" vs "cnbcindonesia.com", etc.
+    Returns a lowercase canonical string; unknown sources return their own
+    lowercased value so they can still match themselves.
+    """
+    if not source:
+        return ""
+    if source in _NORM_SOURCE_CACHE:
+        return _NORM_SOURCE_CACHE[source]
+    s = source.lower().strip()
+    if "detik" in s:
+        result = "detikfinance"
+    elif "katadata" in s:
+        result = "katadata"
+    elif "cnbc" in s:
+        result = "cnbcindonesia"
+    elif "kontan" in s:
+        result = "kontan"
+    elif "bisnis" in s:
+        result = "bisnis"
+    elif "idx channel" in s or "idxchannel" in s:
+        result = "idxchannel"
+    elif "emiten" in s:
+        result = "emitenews"
+    else:
+        result = s
+    _NORM_SOURCE_CACHE[source] = result
+    return result
+
+
 # ---------------------------------------------------------------------------
 # Title normalisation
 # ---------------------------------------------------------------------------
@@ -153,12 +190,13 @@ def are_duplicates(
     if len(pfx) >= 60:
         return True, f"prefix_{len(pfx)}c"
 
-    # Jaccard with threshold depending on same/cross source
+    # Jaccard with threshold depending on same/cross source.
+    # normalize_source() collapses variants like "Detik Finance" / "detikFinance"
+    # so they are correctly identified as same-source (threshold 0.90 not 0.80).
     same_source = (
         source_a is not None
         and source_b is not None
-        and source_tier(source_a) == source_tier(source_b)
-        and source_a.split('.')[0].lower() == source_b.split('.')[0].lower()
+        and normalize_source(source_a) == normalize_source(source_b)
     )
     threshold = SAME_SOURCE_THRESHOLD if same_source else CROSS_SOURCE_THRESHOLD
     j = jaccard(words_a, words_b)
@@ -276,16 +314,26 @@ def dedup_batch(
 
     checked = removed = 0
 
-    # Compare within same bucket AND adjacent buckets (to catch 6h boundary splits)
+    # Compare within same bucket AND adjacent buckets (to catch 6h boundary splits).
+    # Cross-ticker pass: for groups with a known ticker, also compare against the
+    # unmatched group (ticker="") in the same time window. This catches the case
+    # where the GN scraper sets detected_ticker="GOTO" but the RSS scraper leaves
+    # detected_ticker=None for the same article — they would otherwise land in
+    # different groups and never be compared.
     all_keys = list(groups.keys())
     visited_pairs: set[tuple[int, int]] = set()
 
     for ticker, bucket in all_keys:
-        for offset in (0, 1):
-            peer_key = (ticker, bucket + offset)
+        # Peer keys to compare against: same ticker (adjacent buckets) +
+        # unmatched articles (ticker="") in same time window.
+        peer_keys = [(ticker, bucket + offset) for offset in (0, 1)]
+        if ticker:  # cross-compare against ticker-unassigned articles
+            peer_keys += [("", bucket + offset) for offset in (0, 1)]
+
+        a_list = groups[(ticker, bucket)]
+        for peer_key in peer_keys:
             if peer_key not in groups:
                 continue
-            a_list = groups[(ticker, bucket)]
             b_list = groups[peer_key]
 
             for a in a_list:

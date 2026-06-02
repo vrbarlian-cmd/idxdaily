@@ -199,8 +199,9 @@ export default async function MacroMarketNews() {
       aiSummary: { not: null },
       tickerId:  null,
       OR: [
-        { category: 'MACRO',      impactScore: { gte: 7.0 } },
+        { category: 'MACRO',      impactScore: { gte: 5.5 } },
         { category: 'REGULATORY', impactScore: { gte: 5.5 } },
+        { category: 'SECTOR',     impactScore: { gte: 7.0 } },
       ],
     },
     orderBy: [

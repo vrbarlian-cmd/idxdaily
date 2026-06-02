@@ -1,6 +1,7 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
+import { id as localeId } from 'date-fns/locale';
 import { Sparkles } from 'lucide-react';
 
 interface News {
@@ -121,18 +122,18 @@ export default function NewsCard({
 
       {/* AI Summary */}
       {news.aiSummary && (
-        <p className="text-xs text-[#4b5563] leading-relaxed mb-3">
+        <p className="text-[14px] text-[#0f172a] leading-[1.6] mb-3">
           {news.aiSummary}
         </p>
       )}
 
       {/* Impact bar */}
       <div className="mb-3">
-        <div className="flex justify-between text-[10px] text-[#9ca3af] mb-1">
-          <span>Dampak</span>
-          <span className="font-semibold text-[#6b7280]">
+        <div className="flex items-baseline justify-between mb-1.5">
+          <span className="text-[11px] text-[#9ca3af] uppercase tracking-wide">Skor Dampak AI</span>
+          <span className="text-[14px] font-medium text-[#374151]">
             {news.impactScore.toFixed(1)}
-            <span className="font-normal text-[#9ca3af]">/10</span>
+            <span className="text-[12px] font-normal text-[#9ca3af]">/10</span>
           </span>
         </div>
         <div className="h-1 bg-[#f0ede8] rounded-full overflow-hidden">
@@ -148,7 +149,7 @@ export default function NewsCard({
         <span className="text-[11px] text-[#9ca3af]">
           <span className="font-medium text-[#6b7280]">{news.source}</span>
           {' · '}
-          {formatDistanceToNow(new Date(news.publishedAt), { addSuffix: true })}
+          {formatDistanceToNow(new Date(news.publishedAt), { addSuffix: true, locale: localeId })}
         </span>
         {news.url && (
           <a

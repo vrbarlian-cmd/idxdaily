@@ -12,23 +12,17 @@ interface PageProps {
 }
 
 function StatCard({
-  label, value, sub, accent,
+  label, value, sub, accentColor,
 }: {
-  label:   string;
-  value:   string | number;
-  sub?:    string;
-  accent?: 'emerald' | 'red' | 'amber' | 'brand';
+  label:        string;
+  value:        string | number;
+  sub?:         string;
+  accentColor?: string;
 }) {
-  const accentBar: Record<string, string> = {
-    emerald: 'bg-emerald-500',
-    red:     'bg-red-500',
-    amber:   'bg-amber-400',
-    brand:   'bg-[#1a56db]',
-  };
   return (
     <div className="relative bg-white border border-[#e5e2db] rounded-xl p-4 overflow-hidden">
-      {accent && (
-        <div className={`absolute top-0 left-0 right-0 h-0.5 ${accentBar[accent]}`} />
+      {accentColor && (
+        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: accentColor }} />
       )}
       <p className="text-[10px] text-[#9ca3af] uppercase tracking-widest mb-1.5">{label}</p>
       <p className="text-2xl font-bold text-[#0f172a] leading-none">{value}</p>
@@ -158,7 +152,7 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
     },
     select: {
       sentiment: true, impactScore: true, aiSummary: true, matchType: true,
-      article: { select: { sentiment: true, impactScore: true, aiSummary: true } },
+      article: { select: { sentiment: true, impactScore: true, aiSummary: true, source: true } },
     },
   });
 
@@ -179,11 +173,28 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
     if (sent in sentCounts) sentCounts[sent]++;
   }
   const dominantSentiment = Object.entries(sentCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'NEUTRAL';
+
+  // Sentiment sub-label: show dominant sentiment's share of enriched articles
+  const totalEnriched = sentCounts.BULLISH + sentCounts.BEARISH + sentCounts.NEUTRAL;
+  const dominantCount = sentCounts[dominantSentiment as keyof typeof sentCounts];
+  const dominantPct   = totalEnriched > 0 ? Math.round((dominantCount / totalEnriched) * 100) : 0;
+  const sentimentSub  =
+    dominantSentiment === 'BULLISH' ? `${dominantPct}% berita positif dominan` :
+    dominantSentiment === 'BEARISH' ? `${dominantPct}% berita negatif dominan` :
+    `${dominantPct}% berita netral`;
+
+  // Distinct source count in the 7d window
+  const sourceCount = new Set(allMentions7d.map(m => m.article.source)).size;
+
+  // Enriched sub-label
+  const enrichSub = enrichedCount === articleCount
+    ? 'Semua berita sudah diringkas'
+    : `${articleCount - enrichedCount} berita belum dianalisis`;
+
   const sentimentChipStyle =
     dominantSentiment === 'BULLISH' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
     dominantSentiment === 'BEARISH' ? 'bg-red-50 text-red-600 border-red-200' :
     'bg-amber-50 text-amber-700 border-amber-200';
-  const enrichPct = articleCount > 0 ? Math.round((enrichedCount / articleCount) * 100) : 0;
 
   // ── "Berita Terbaru" — last 30 days (live feed) ───────────────────────────
   const recentRaw = await prisma.tickerMention.findMany({
@@ -250,13 +261,33 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
         {/* Stats row */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <StatCard
-            label="Sentimen 7d"
+            label="Sentimen"
             value={dominantSentiment.charAt(0) + dominantSentiment.slice(1).toLowerCase()}
-            accent={dominantSentiment === 'BULLISH' ? 'emerald' : dominantSentiment === 'BEARISH' ? 'red' : 'amber'}
+            sub={sentimentSub}
+            accentColor={
+              dominantSentiment === 'BULLISH' ? '#1D9E75' :
+              dominantSentiment === 'BEARISH' ? '#E24B4A' :
+              '#9ca3af'
+            }
           />
-          <StatCard label="Artikel 7d" value={articleCount} />
-          <StatCard label="High-Impact" value={aGradeCount} sub="impact ≥ 7.0 & enriched" accent={aGradeCount > 0 ? 'amber' : undefined} />
-          <StatCard label="Enriched" value={`${enrichPct}%`} sub={`${enrichedCount} of ${articleCount}`} />
+          <StatCard
+            label="Total berita ditemukan"
+            value={articleCount}
+            sub={`dari ${sourceCount} sumber berbeda`}
+            accentColor="#378ADD"
+          />
+          <StatCard
+            label="Berita penting"
+            value={`${aGradeCount} dari ${articleCount}`}
+            sub="Berpotensi gerakkan harga saham"
+            accentColor="#EF9F27"
+          />
+          <StatCard
+            label="Dianalisis AI"
+            value={`${enrichedCount}/${articleCount}`}
+            sub={enrichSub}
+            accentColor="#1D9E75"
+          />
         </div>
 
         {/* Content: articles + sidebar */}

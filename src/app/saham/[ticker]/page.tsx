@@ -20,13 +20,13 @@ function StatCard({
   accentColor?: string;
 }) {
   return (
-    <div className="relative bg-white border border-[#e5e2db] rounded-xl p-4 overflow-hidden">
+    <div className="relative flex flex-col bg-white border border-[#e5e2db] rounded-xl p-4 overflow-hidden">
       {accentColor && (
-        <div className="absolute top-0 left-0 right-0 h-0.5" style={{ backgroundColor: accentColor }} />
+        <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: accentColor }} />
       )}
-      <p className="text-[10px] text-[#9ca3af] uppercase tracking-widest mb-1.5">{label}</p>
-      <p className="text-2xl font-bold text-[#0f172a] leading-none">{value}</p>
-      {sub && <p className="text-[10px] text-[#9ca3af] mt-1.5">{sub}</p>}
+      <p className="text-[11px] text-[#9ca3af] uppercase tracking-widest mb-2">{label}</p>
+      <p className="text-[22px] font-medium text-[#0f172a] leading-none">{value}</p>
+      {sub && <p className="text-[12px] text-[#9ca3af] mt-2 leading-snug">{sub}</p>}
     </div>
   );
 }
@@ -259,9 +259,9 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
         </div>
 
         {/* Stats row */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-stretch">
           <StatCard
-            label="Sentimen"
+            label="SENTIMEN 7 HARI"
             value={dominantSentiment.charAt(0) + dominantSentiment.slice(1).toLowerCase()}
             sub={sentimentSub}
             accentColor={
@@ -271,19 +271,19 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
             }
           />
           <StatCard
-            label="Total berita ditemukan"
+            label="TOTAL BERITA"
             value={articleCount}
             sub={`dari ${sourceCount} sumber berbeda`}
             accentColor="#378ADD"
           />
           <StatCard
-            label="Berita penting"
+            label="BERITA PENTING"
             value={`${aGradeCount} dari ${articleCount}`}
             sub="Berpotensi gerakkan harga saham"
             accentColor="#EF9F27"
           />
           <StatCard
-            label="Dianalisis AI"
+            label="DIANALISIS AI"
             value={`${enrichedCount}/${articleCount}`}
             sub={enrichSub}
             accentColor="#1D9E75"

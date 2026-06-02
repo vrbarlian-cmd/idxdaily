@@ -41,6 +41,12 @@ function impactScoreColor(s: string) {
   if (s === 'BEARISH') return 'text-red-600';
   return 'text-amber-700';
 }
+function scoreValueColor(score: number): string {
+  if (score >= 8.5) return 'text-[#ef4444]';  // red   — very high impact
+  if (score >= 7.0) return 'text-[#f59e0b]';  // amber — medium-high
+  if (score >= 5.5) return 'text-[#14b8a6]';  // teal  — moderate
+  return 'text-[#94a3b8]';                     // slate — low
+}
 
 // ── Date display ──────────────────────────────────────────────────────────────
 
@@ -160,7 +166,7 @@ function ArticleCard({ a }: { a: ArticleData }) {
 
           {/* Impact score */}
           <div className="flex-shrink-0 text-right">
-            <span className={`text-2xl font-bold leading-none tabular-nums ${impactScoreColor(a.sentiment)}`}>
+            <span className={`text-2xl font-bold leading-none tabular-nums ${scoreValueColor(a.impactScore)}`}>
               {a.impactScore.toFixed(1)}
             </span>
             <p className="text-[10px] text-[#9ca3af] mt-0.5">/10</p>
@@ -177,7 +183,7 @@ export default async function AGradeNews() {
   const stockArticles = await prisma.news.findMany({
     where: {
       aiSummary:   { not: null },
-      impactScore: { gte: 7.5 },
+      impactScore: { gte: 7.0 },
       tickerId:    { not: null },
       category:    { notIn: ['MACRO', 'REGULATORY'] },
     },
@@ -206,7 +212,7 @@ export default async function AGradeNews() {
           </h2>
         </div>
         <span className="text-[11px] text-[#9ca3af]">
-          impact ≥ 7.5 · AI enriched
+          impact ≥ 7.0 · AI enriched
         </span>
       </div>
 

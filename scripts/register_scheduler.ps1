@@ -9,17 +9,32 @@
 #   IDXDaily_Catchup       - on workstation UNLOCK + on any missed IDXDaily_Ingest trigger
 #                            Runs: ingest -> enrich -> compute_index (one pass, no loop)
 #   IDXDaily_SmallcapSweep - daily at 02:00, Google News for ALL tickers
+#
+# All tasks run HIDDEN (no CMD window) via run_hidden.vbs.
+# Output is still written to logs\ as defined in each .bat file.
 
 $projectRoot = "C:\Users\Vito\OneDrive\Documents\AI News"
 $scriptsDir  = "$projectRoot\scripts"
+$vbsPath     = "$scriptsDir\run_hidden.vbs"
 
 New-Item -ItemType Directory -Force -Path "$projectRoot\logs" | Out-Null
 
+# Sanity check — VBScript wrapper must exist before registering tasks
+if (-not (Test-Path $vbsPath)) {
+    Write-Host "  ERROR: run_hidden.vbs not found at $vbsPath" -ForegroundColor Red
+    Write-Host "  Create it first, then re-run this script." -ForegroundColor Red
+    exit 1
+}
+
 # --- Helper: register a task from a .bat file with a standard trigger ---
+# All tasks launch via wscript.exe + run_hidden.vbs so NO console window appears.
+# bWaitOnReturn=True in the VBScript means Task Scheduler correctly tracks
+# the task as "Running" until the .bat exits (MultipleInstances=IgnoreNew works).
 function Register-BatTask {
     param($Name, $BatFile, $Trigger, $Description)
-    $action    = New-ScheduledTaskAction -Execute "cmd.exe" `
-                     -Argument "/c `"$BatFile`"" -WorkingDirectory $projectRoot
+    $action    = New-ScheduledTaskAction -Execute "wscript.exe" `
+                     -Argument "`"$vbsPath`" `"$BatFile`"" `
+                     -WorkingDirectory $projectRoot
     $settings  = New-ScheduledTaskSettingsSet `
                      -ExecutionTimeLimit  (New-TimeSpan -Hours 3) `
                      -StartWhenAvailable `
@@ -38,7 +53,7 @@ function Register-BatTask {
     }
 }
 
-Write-Host "`nRegistering IDXDaily scheduled tasks..." -ForegroundColor Cyan
+Write-Host "`nRegistering IDXDaily scheduled tasks (hidden mode)..." -ForegroundColor Cyan
 
 # Remove stale tasks from previous registrations
 foreach ($old in @("IDXDaily_Enrich")) {
@@ -52,7 +67,7 @@ foreach ($old in @("IDXDaily_Enrich")) {
 $t1 = New-ScheduledTaskTrigger -Once -At (Get-Date).ToString("HH:mm") `
           -RepetitionInterval (New-TimeSpan -Minutes 15)
 Register-BatTask "IDXDaily_Ingest" "$scriptsDir\run_ingest.bat" $t1 `
-    "Smart ingest every 15min; market hours=GN+RSS+enrich; off-hours=RSS+enrich at most every 2h. StartWhenAvailable catches up after sleep."
+    "Smart ingest every 15min; market hours=GN+RSS+enrich; off-hours=RSS+enrich at most every 2h. StartWhenAvailable catches up after sleep. Runs hidden via run_hidden.vbs."
 
 # --- 2. Catch-up on workstation UNLOCK ---
 # Windows Task Scheduler supports session-state-change triggers only via COM.
@@ -76,37 +91,37 @@ try {
     $taskDef.Settings.WakeToRun           = $false
     $taskDef.Settings.MultipleInstances   = 3       # TASK_INSTANCES_IGNORE_NEW
     $taskDef.Settings.Enabled             = $true
-    $taskDef.RegistrationInfo.Description = "One full catch-up pass (ingest+enrich+compute_index) on workstation unlock. Safe to re-run."
+    $taskDef.RegistrationInfo.Description = "One full catch-up pass (ingest+enrich+compute_index) on workstation unlock. Runs hidden via run_hidden.vbs."
 
     # Trigger: workstation unlock (StateChange = 8)
     $trigger             = $taskDef.Triggers.Create(11)  # TASK_TRIGGER_SESSION_STATE_CHANGE
     $trigger.StateChange = 8                              # TASK_SESSION_UNLOCK
     $trigger.Enabled     = $true
 
-    # Action
+    # Action: wscript.exe + run_hidden.vbs -> run_catchup.bat (hidden, no window)
     $action                  = $taskDef.Actions.Create(0)   # TASK_ACTION_EXEC
-    $action.Path             = "cmd.exe"
-    $action.Arguments        = "/c `"$scriptsDir\run_catchup.bat`""
+    $action.Path             = "wscript.exe"
+    $action.Arguments        = "`"$vbsPath`" `"$scriptsDir\run_catchup.bat`""
     $action.WorkingDirectory = $projectRoot
 
     # Register (6 = TASK_CREATE_OR_UPDATE, 3 = TASK_LOGON_INTERACTIVE_TOKEN)
     $folder.RegisterTaskDefinition("IDXDaily_Catchup", $taskDef, 6, $null, $null, 3) | Out-Null
-    Write-Host "  OK: IDXDaily_Catchup  (unlock trigger)" -ForegroundColor Green
+    Write-Host "  OK: IDXDaily_Catchup  (unlock trigger, hidden)" -ForegroundColor Green
 } catch {
     Write-Host "  FAIL: IDXDaily_Catchup - $_" -ForegroundColor Red
     Write-Host "  Fallback: registering IDXDaily_Catchup with AtLogon trigger instead..." -ForegroundColor Yellow
     # Fallback: AtLogon fires on both login AND unlock on most Windows configs
     $t2fallback = New-ScheduledTaskTrigger -AtLogOn -User $env:USERNAME
     Register-BatTask "IDXDaily_Catchup" "$scriptsDir\run_catchup.bat" $t2fallback `
-        "Catch-up on login/unlock: ingest+enrich+compute_index (one pass)"
+        "Catch-up on login/unlock: ingest+enrich+compute_index (one pass, hidden)"
 }
 
 # --- 3. Small-cap full sweep - daily at 02:00 ---
 $t3 = New-ScheduledTaskTrigger -Daily -At "02:00"
 Register-BatTask "IDXDaily_SmallcapSweep" "$scriptsDir\run_ingest_smallcap.bat" $t3 `
-    "Full Google News sweep for ALL 926 tickers, daily at 02:00"
+    "Full Google News sweep for ALL 926 tickers, daily at 02:00. Runs hidden via run_hidden.vbs."
 
-# --- Verify ---
+# --- Verify task registration ---
 Write-Host "`nVerifying registered tasks:" -ForegroundColor Cyan
 Get-ScheduledTask | Where-Object { $_.TaskName -like "IDXDaily_*" } |
     Select-Object TaskName, State |
@@ -115,6 +130,55 @@ Get-ScheduledTask | Where-Object { $_.TaskName -like "IDXDaily_*" } |
 Write-Host "Checking StartWhenAvailable setting on IDXDaily_Ingest:" -ForegroundColor Cyan
 (Get-ScheduledTask -TaskName "IDXDaily_Ingest").Settings.StartWhenAvailable
 
-Write-Host "`nDone." -ForegroundColor Green
+Write-Host "`nDone registering tasks." -ForegroundColor Green
+Write-Host ""
+
+# =============================================================================
+# PART B — Smoke test: trigger IDXDaily_Ingest and verify hidden + logged
+# =============================================================================
+Write-Host "=== PART B: Smoke test ===" -ForegroundColor Cyan
+Write-Host "Triggering IDXDaily_Ingest now..." -ForegroundColor Yellow
+Start-ScheduledTask -TaskName "IDXDaily_Ingest"
+
+Write-Host "Waiting 35 seconds for the task to start and write its first log line..." -ForegroundColor Yellow
+Start-Sleep -Seconds 35
+
+# 1. Check for visible CMD window (heuristic: look for cmd.exe child of wscript.exe)
+$cmdWindows = Get-Process -Name "cmd" -ErrorAction SilentlyContinue |
+    Where-Object { $_.MainWindowTitle -ne "" }
+if ($cmdWindows) {
+    Write-Host "  [WARN] Visible CMD window(s) detected: $($cmdWindows.Count)" -ForegroundColor Red
+    Write-Host "         Titles: $($cmdWindows.MainWindowTitle -join ', ')" -ForegroundColor Red
+} else {
+    Write-Host "  [OK]  No visible CMD window (hidden mode working)" -ForegroundColor Green
+}
+
+# 2. Check log file was written
+$logFile = "$projectRoot\logs\ingest_scheduler.log"
+if (Test-Path $logFile) {
+    $age = (Get-Date) - (Get-Item $logFile).LastWriteTime
+    if ($age.TotalSeconds -lt 60) {
+        $lastLine = (Get-Content $logFile -Tail 3) -join " | "
+        Write-Host "  [OK]  Log updated $([int]$age.TotalSeconds)s ago: $lastLine" -ForegroundColor Green
+    } else {
+        Write-Host "  [WARN] Log exists but last write was $([int]$age.TotalSeconds)s ago — task may not have run yet." -ForegroundColor Red
+    }
+} else {
+    Write-Host "  [WARN] Log file not found: $logFile" -ForegroundColor Red
+    Write-Host "         The bat may be writing to a different path, or ingest hasn't started yet." -ForegroundColor Yellow
+}
+
+# 3. Check LastTaskResult
+$result = (Get-ScheduledTaskInfo -TaskName "IDXDaily_Ingest").LastTaskResult
+$state  = (Get-ScheduledTask    -TaskName "IDXDaily_Ingest").State
+if ($state -eq "Running") {
+    Write-Host "  [OK]  Task is still Running (normal — ingest takes ~5-7 min)" -ForegroundColor Green
+} elseif ($result -eq 0) {
+    Write-Host "  [OK]  LastTaskResult = 0 (success)" -ForegroundColor Green
+} else {
+    Write-Host "  [WARN] LastTaskResult = $result (non-zero may indicate error; check log)" -ForegroundColor Red
+}
+
+Write-Host ""
 Write-Host "Next: lock and unlock your workstation to test IDXDaily_Catchup fires." -ForegroundColor Yellow
-Write-Host "Or run immediately: schtasks /run /tn IDXDaily_Catchup" -ForegroundColor Yellow
+Write-Host "Or run: Start-ScheduledTask -TaskName IDXDaily_Catchup" -ForegroundColor Yellow

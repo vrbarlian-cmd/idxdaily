@@ -16,8 +16,16 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 import time
 from datetime import datetime, timezone
+
+# Windows cp1252 stdout cannot encode Indonesian text (curly quotes, ellipsis,
+# en-dash, etc.) that appears in article titles printed during enrichment.
+# Reconfigure stdout to UTF-8 with replacement so print() never raises
+# UnicodeEncodeError regardless of article content.
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]

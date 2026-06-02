@@ -54,7 +54,7 @@ function Register-BatTask {
                     -Argument "`"$vbsPath`" `"$BatFile`"" `
                     -WorkingDirectory $projectRoot
     $settings = New-ScheduledTaskSettingsSet `
-                    -ExecutionTimeLimit (New-TimeSpan -Hours 3) `
+                    -ExecutionTimeLimit (New-TimeSpan -Hours 1) `
                     -StartWhenAvailable `
                     -WakeToRun:$false `
                     -MultipleInstances IgnoreNew
@@ -98,7 +98,7 @@ try {
     $taskDef.Principal.LogonType = 3   # TASK_LOGON_INTERACTIVE_TOKEN
     $taskDef.Principal.RunLevel  = 1   # TASK_RUNLEVEL_HIGHEST
 
-    $taskDef.Settings.ExecutionTimeLimit = "PT3H"
+    $taskDef.Settings.ExecutionTimeLimit = "PT1H"
     $taskDef.Settings.StartWhenAvailable = $true
     $taskDef.Settings.WakeToRun          = $false
     $taskDef.Settings.MultipleInstances  = 3       # TASK_INSTANCES_IGNORE_NEW

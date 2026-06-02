@@ -644,7 +644,7 @@ async def run_batch(limit: int, ticker: str | None, force: bool = False, model: 
                     print(f"     [macro-impact] [WARN] failed: {exc}")
 
         total_articles = len(rows)
-        print(f"[enrich] Done — {ok} summaries across {total_articles} articles ({fail} failed)")
+        print(f"[enrich] Done - {ok} summaries across {total_articles} articles ({fail} failed)")
     finally:
         await conn.close()
 
@@ -741,7 +741,7 @@ async def run_macro_reprocess(limit: int, model: str = DEFAULT_MODEL, delay: flo
         print(f"  Articles processed : {len(rows)}")
         print(f"  Old mentions deleted: {removed}")
         print(f"  New strong mentions : {inserted}")
-        print(f"  Articles → 0 tickers: {skipped}")
+        print(f"  Articles -> 0 tickers: {skipped}")
         print(f"  BEFORE: {total_before}  AFTER: {total_after} macro_impact mentions")
 
         if sample_results:

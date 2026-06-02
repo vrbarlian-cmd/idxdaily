@@ -152,7 +152,7 @@ async def submit_batch(conn, api_key: str, model: str, limit: int) -> None:
 
     rows = await fetch_unenriched(conn, limit)
     if not rows:
-        print("[batch-submit] No unenriched articles found — nothing to submit.")
+        print("[batch-submit] No unenriched articles found - nothing to submit.")
         return
 
     print(f"[batch-submit] {len(rows)} articles  [model={model}]")
@@ -204,12 +204,12 @@ async def check_batches(conn, api_key: str) -> None:
 
         if state not in TERMINAL_STATES:
             await update_batch_status(conn, batch_id, state)
-            print("  (still running — check again later)")
+            print("  (still running - check again later)")
             continue
 
         if state != "JOB_STATE_SUCCEEDED":
             await update_batch_status(conn, batch_id, state)
-            print(f"  [WARN] Batch ended with state {state} — no results to apply.")
+            print(f"  [WARN] Batch ended with state {state} - no results to apply.")
             continue
 
         # Retrieve inline responses
@@ -241,7 +241,7 @@ async def check_batches(conn, api_key: str) -> None:
 async def run(submit: bool, check: bool, limit: int, model: str) -> None:
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
-        print("[batch] GEMINI_API_KEY not set — add it to .env and retry.")
+        print("[batch] GEMINI_API_KEY not set - add it to .env and retry.")
         return
 
     conn = await get_conn()

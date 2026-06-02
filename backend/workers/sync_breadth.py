@@ -82,7 +82,7 @@ async def fetch_stock(
                 return []
             data = await resp.json(content_type=None)
     except Exception as exc:
-        print(f"  [WARN] {ticker}: fetch failed — {exc}")
+        print(f"  [WARN] {ticker}: fetch failed - {exc}")
         return []
 
     result = data.get("chart", {}).get("result", [None])[0]
@@ -146,7 +146,7 @@ async def run_sync(range_: str = "3mo", dry_run: bool = False) -> None:
                     total_bars += len(bars)
                     if not dry_run:
                         n = await upsert_bars(conn, bars)
-                        print(f"  {ticker:6s}: {n} bars ({bars[0]['date']} → {bars[-1]['date']})")
+                        print(f"  {ticker:6s}: {n} bars ({bars[0]['date']} -> {bars[-1]['date']})")
                     else:
                         print(f"  [DRY] {ticker:6s}: {len(bars)} bars")
                 else:

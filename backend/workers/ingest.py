@@ -735,7 +735,7 @@ async def run_once(
             fresh.append(art)
     if dropped_no_date or dropped_stale:
         print(f"[ingest] Dropped: {dropped_no_date} no-date, "
-              f"{dropped_stale} stale (>30d) — {len(fresh)} remain")
+              f"{dropped_stale} stale (>30d) - {len(fresh)} remain")
     unique = fresh
 
     # ── Phase 2: Insert — fresh connection (old one was closed after ticker load) ──

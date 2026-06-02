@@ -384,7 +384,7 @@ async def run_fetch(
             f"{s}:{c}" for s, c in status_counts.items()
             if s not in ("ok", "no_url")
         ]
-        print(f"\n[fetch-bodies] Done — {ok}/{len(rows)} bodies fetched")
+        print(f"\n[fetch-bodies] Done - {ok}/{len(rows)} bodies fetched")
         if blocked:
             print(f"  Non-OK statuses: {', '.join(blocked)}")
 

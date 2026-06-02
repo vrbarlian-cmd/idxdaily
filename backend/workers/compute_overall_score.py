@@ -113,7 +113,7 @@ async def run() -> None:
             )
 
         if not fg_row or fg_row["smoothed_score"] is None:
-            print("[Overall Score] Foreign Score not available — cannot compute.")
+            print("[Overall Score] Foreign Score not available - cannot compute.")
             return
 
         foreign_score = float(fg_row["smoothed_score"])
@@ -212,7 +212,7 @@ async def run() -> None:
         print(f"  Smoothed       : {smoothed:.1f} / 100")
         print(f"  Label          : {label}")
         if div_signal:
-            print(f"\n  Divergence     : {div_magnitude:.0f}pt gap → {div_signal}")
+            print(f"\n  Divergence     : {div_magnitude:.0f}pt gap -> {div_signal}")
             print(f"  Message        : {div_message}")
         print(f"\n  *** fear_greed_index NOT TOUCHED ***")
         print(f"{'='*62}\n")

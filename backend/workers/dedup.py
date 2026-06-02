@@ -328,7 +328,7 @@ def dedup_batch(
                 )
 
     if checked:
-        print(f"[dedup] Checked {checked} pairs → removed {removed} duplicates")
+        print(f"[dedup] Checked {checked} pairs -> removed {removed} duplicates")
 
     # Strip internal fields and return
     result = []

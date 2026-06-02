@@ -308,7 +308,7 @@ async def run() -> None:
         ]
 
         if not domestic_rows:
-            print("\n[Domestic Score] No domestic data yet — nothing to compute.")
+            print("\n[Domestic Score] No domestic data yet - nothing to compute.")
             print("  Enter data: python -m backend.scripts.set_domestic_flow --buy N --sell M")
             return
 

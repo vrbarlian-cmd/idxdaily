@@ -194,14 +194,22 @@ function looksCompanySpecific(title: string): boolean {
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default async function MacroMarketNews() {
+  const GLOBAL_SOURCES = [
+    'Bloomberg Markets', 'CNBC International', 'Investing.com', 'Federal Reserve',
+  ];
+
   const raw = await prisma.news.findMany({
     where: {
       aiSummary: { not: null },
       tickerId:  null,
       OR: [
-        { category: 'MACRO',      impactScore: { gte: 5.5 } },
-        { category: 'REGULATORY', impactScore: { gte: 5.5 } },
-        { category: 'SECTOR',     impactScore: { gte: 7.0 } },
+        // Domestic sources — keep impact score threshold to filter noise
+        { category: 'MACRO',      impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
+        { category: 'REGULATORY', impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
+        { category: 'SECTOR',     impactScore: { gte: 7.0 }, source: { notIn: GLOBAL_SOURCES } },
+        // Global sources — no score threshold; Gemini rates indirect IDX impact
+        // conservatively (4.0–5.5) which is correct but below the domestic threshold.
+        { source: { in: GLOBAL_SOURCES }, aiSummary: { not: null } },
       ],
     },
     orderBy: [

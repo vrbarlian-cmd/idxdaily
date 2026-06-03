@@ -41,6 +41,13 @@ from bs4 import BeautifulSoup
 # RSS feed definitions
 # ---------------------------------------------------------------------------
 
+# Sources whose articles are purely global macro — never assign IDX tickers.
+# Text like "resolution plan" matching "PLAN", or "gold" matching ANTM, produces
+# false-positive ticker_id values that hide articles from the macro section.
+GLOBAL_SOURCES: set[str] = {
+    'Bloomberg Markets', 'CNBC International', 'Investing.com', 'Federal Reserve',
+}
+
 FEEDS = [
     # ── Indonesian domestic sources ───────────────────────────────────────────
     {"name": "Detik Finance",  "url": "https://finance.detik.com/rss"},
@@ -814,11 +821,17 @@ async def run_once(
                 continue
 
             # Determine matching ticker IDs with confidence
-            if art.get("detected_ticker"):
+            if art.get("source") in GLOBAL_SOURCES:
+                # Global macro sources — never assign IDX tickers. Substring
+                # matches like "PLAN" in "resolution plan" or gold tickers from
+                # "Wall St" articles produce false positives that hide these
+                # articles from the macro section (which requires ticker_id=NULL).
+                matched: list[tuple[str, str]] = []
+            elif art.get("detected_ticker"):
                 # Articles from ticker-tag / Google News scraper: code is known
                 sym = art["detected_ticker"]
                 tid = symbol_map.get(sym)
-                matched: list[tuple[str, str]] = [(tid, "high")] if tid else []
+                matched = [(tid, "high")] if tid else []
             else:
                 search_text = f"{art['title']} {art['snippet']}"
                 matched = detect_tickers(search_text, alias_entries, shared_aliases)

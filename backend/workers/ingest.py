@@ -859,16 +859,30 @@ def _acquire_lock() -> None:
     and exit cleanly instead of running concurrently.
 
     If the lockfile exists but the recorded PID is no longer alive (stale
-    lock from a crash), the old file is silently overwritten.
+    lock from a crash or sleep/shutdown), the old file is silently overwritten.
+
+    Uses Windows tasklist instead of os.kill(pid, 0): on Windows, os.kill
+    raises SystemError (not OSError) for dead PIDs in some Python builds,
+    which bypassed the stale-lock handler and blocked all subsequent runs.
     """
     if _LOCKFILE.exists():
         try:
             pid = int(_LOCKFILE.read_text().strip())
-            _os.kill(pid, 0)          # raises OSError if process is dead
-            print(f"[ingest] Already running (PID {pid}) — exiting to avoid concurrent run.")
-            _sys.exit(0)
-        except (OSError, ValueError):
-            pass  # stale lock — process gone or file corrupt, proceed
+        except (ValueError, OSError):
+            pass  # unreadable — treat as stale
+        else:
+            try:
+                import subprocess as _sp
+                result = _sp.run(
+                    ['tasklist', '/FI', f'PID eq {pid}', '/NH'],
+                    capture_output=True, text=True, timeout=5,
+                )
+                if str(pid) in result.stdout:
+                    print(f"[ingest] Already running (PID {pid}) — exiting to avoid concurrent run.")
+                    _sys.exit(0)
+                # PID absent from tasklist → process is dead → stale lock, proceed
+            except Exception:
+                pass  # tasklist unavailable or timed out — treat as stale, proceed
     _LOCKFILE.write_text(str(_os.getpid()))
 
 

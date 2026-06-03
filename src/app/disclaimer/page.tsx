@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Disclaimer — IDXDaily',
+  title: 'Disclaimer - IDXDaily',
   description: 'Disclaimer IDXDaily: informasi di situs ini bukan saran investasi.',
 };
 
@@ -17,8 +17,8 @@ export default function DisclaimerPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base text-[#0f172a]">Bukan Saran Investasi</h2>
             <p>
-              Seluruh konten yang tersedia di IDXDaily — termasuk berita, ringkasan AI, indeks
-              Fear &amp; Greed, skor sentimen, dan analisis data pasar — bersifat <strong>informatif
+              Seluruh konten yang tersedia di IDXDaily - termasuk berita, ringkasan AI, indeks
+              Fear &amp; Greed, skor sentimen, dan analisis data pasar - bersifat <strong>informatif
               dan edukatif semata</strong>. Konten ini <strong>bukan</strong> merupakan saran
               investasi, rekomendasi beli atau jual efek, atau nasihat keuangan dalam bentuk
               apapun.

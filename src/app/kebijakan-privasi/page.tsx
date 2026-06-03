@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Kebijakan Privasi — IDXDaily',
+  title: 'Kebijakan Privasi - IDXDaily',
   description: 'Kebijakan privasi IDXDaily: data apa yang dikumpulkan dan bagaimana penggunaannya.',
 };
 
@@ -21,12 +21,12 @@ export default function KebijakanPrivasiPage() {
             </p>
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li>
-                <span className="font-medium">Log pencarian ticker</span> — ketika Anda mencari
+                <span className="font-medium">Log pencarian ticker</span> - ketika Anda mencari
                 kode saham (misalnya &ldquo;BBCA&rdquo;), kami menyimpan kode saham tersebut dan
                 waktu pencarian. Tidak ada nama, email, atau identitas yang disimpan.
               </li>
               <li>
-                <span className="font-medium">Statistik kunjungan halaman</span> — data agregat
+                <span className="font-medium">Statistik kunjungan halaman</span> - data agregat
                 seperti halaman yang paling banyak dikunjungi, digunakan untuk memahami konten
                 mana yang paling berguna.
               </li>

@@ -80,8 +80,8 @@ export default function KebijakanPrivasiPage() {
             <p>
               Karena kami tidak menyimpan data pribadi yang dapat mengidentifikasi Anda, tidak ada
               data yang perlu dihapus. Untuk pertanyaan terkait privasi, hubungi kami di{' '}
-              <a href="mailto:kontak@idxdaily.com" className="underline text-stone-500">
-                kontak@idxdaily.com
+              <a href="mailto:vrbarlian@gmail.com" className="underline text-stone-500">
+                vrbarlian@gmail.com
               </a>.
             </p>
           </section>

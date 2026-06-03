@@ -17,7 +17,7 @@ export default function Footer() {
           <Link href="/kebijakan-privasi" className="hover:text-stone-800 transition-colors">
             Kebijakan Privasi
           </Link>
-          <a href="mailto:kontak@idxdaily.com" className="hover:text-stone-800 transition-colors">
+          <a href="mailto:vrbarlian@gmail.com" className="hover:text-stone-800 transition-colors">
             Kontak
           </a>
         </nav>

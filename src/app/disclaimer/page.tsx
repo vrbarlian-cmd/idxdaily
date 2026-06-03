@@ -74,7 +74,7 @@ export default function DisclaimerPage() {
 
           <p className="text-xs text-stone-500 border-t border-stone-100 pt-4">
             Pertanyaan? Hubungi kami di{' '}
-            <a href="mailto:kontak@idxdaily.com" className="underline">kontak@idxdaily.com</a>.
+            <a href="mailto:vrbarlian@gmail.com" className="underline">vrbarlian@gmail.com</a>.
           </p>
 
         </div>

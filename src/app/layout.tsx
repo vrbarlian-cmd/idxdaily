@@ -2,6 +2,7 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import Header from '@/components/Header';
+import Footer from '@/components/Footer';
 import { fetchMarketSnapshot } from '@/lib/marketData';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -20,6 +21,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="font-sans antialiased">
         <Header market={market} />
         {children}
+        <Footer />
       </body>
     </html>
   );

@@ -48,6 +48,21 @@ GLOBAL_SOURCES: set[str] = {
     'Bloomberg Markets', 'CNBC International', 'Investing.com', 'Federal Reserve',
 }
 
+# Articles whose titles contain any of these keywords should NEVER be blocked
+# by inter-batch Jaccard dedup — they represent genuinely distinct corporate or
+# macro events (credit ratings, M&A, restructuring) that share an entity name
+# with earlier articles on the same company/topic.
+ALWAYS_INSERT_KEYWORDS: tuple[str, ...] = (
+    "moody's", "moodys", "fitch", "s&p", "pefindo",
+    "rating", "peringkat", "baa", "investment grade",
+    "downgrade", "upgrade", "outlook",
+    "default", "bankruptcy", "pailit",
+    "merger", "akuisisi", "rights issue", "stock split",
+    "delisting", "suspend",
+    "ipo ", " ipo", "penawaran umum",
+    "dividen", "buyback",
+)
+
 FEEDS = [
     # ── Indonesian domestic sources ───────────────────────────────────────────
     {"name": "Detik Finance",  "url": "https://finance.detik.com/rss"},
@@ -599,6 +614,15 @@ MACRO_KEYWORDS: list[str] = [
     "daya beli", "konsumsi rumah tangga",
     # Infrastructure / construction
     "infrastruktur", "konstruksi", "tender proyek",
+    # ── Credit ratings & capital markets (Moody's, Fitch, S&P, PEFINDO) ────────
+    # Rating actions have broad market impact (bond yields, bank capital ratios)
+    "moody", "fitch", "s&p ", "pefindo", "rating", "peringkat",
+    "baa", "investment grade", "downgrade", "upgrade",
+    "obligasi", "surat utang", "bond", "yield",
+    "default", "pailit", "restrukturisasi utang",
+    # M&A / corporate events that move sector multiples
+    "merger", "akuisisi", "rights issue", "stock split",
+    "delisting", "ipo ", " ipo", "penawaran umum",
     # ── Global English macro keywords ─────────────────────────────────────────
     # Oil & energy (Brent/WTI affect MEDC, PGAS, ESSA; CPO benchmark)
     "oil price", "crude oil", "brent", "wti", "opec", "petroleum",
@@ -805,16 +829,28 @@ async def run_once(
             # Inter-batch title similarity check against already-stored articles
             _art_norm  = _normalise(art["title"])
             _art_words = _word_set(_art_norm)
-            _is_ibd    = False
-            for _db_norm, _db_words, _db_src in _recent_norms:
-                _same_src  = _norm_src(art.get("source")) == _norm_src(_db_src)
-                _threshold = 0.90 if _same_src else 0.80
-                if _art_norm == _db_norm or _jaccard(_art_words, _db_words) >= _threshold:
-                    _is_ibd = True
-                    break
-            if _is_ibd:
-                skipped_dup += 1
-                continue
+
+            # Bypass inter-batch Jaccard for high-value event articles: rating
+            # actions, M&A, IPO, etc. share entity names with earlier articles
+            # on the same company but represent genuinely distinct news events.
+            _title_lower = art["title"].lower()
+            if any(kw in _title_lower for kw in ALWAYS_INSERT_KEYWORDS):
+                pass  # skip inter-batch dedup entirely for this article
+            else:
+                _is_ibd = False
+                for _db_norm, _db_words, _db_src in _recent_norms:
+                    _same_src  = _norm_src(art.get("source")) == _norm_src(_db_src)
+                    # Cross-source threshold raised to 0.90 (was 0.80) — two
+                    # articles from different sources sharing 80 % of words are
+                    # almost always the same story, but the old threshold also
+                    # caught articles that merely share a prominent entity name.
+                    _threshold = 0.90
+                    if _art_norm == _db_norm or _jaccard(_art_words, _db_words) >= _threshold:
+                        _is_ibd = True
+                        break
+                if _is_ibd:
+                    skipped_dup += 1
+                    continue
 
             if await article_exists(conn, art["url"]):
                 skipped_dup += 1

@@ -42,10 +42,18 @@ from bs4 import BeautifulSoup
 # ---------------------------------------------------------------------------
 
 FEEDS = [
+    # ── Indonesian domestic sources ───────────────────────────────────────────
     {"name": "Detik Finance",  "url": "https://finance.detik.com/rss"},
     {"name": "CNBC Indonesia", "url": "https://www.cnbcindonesia.com/market/rss"},
     {"name": "Kontan",         "url": "https://investasi.kontan.co.id/rss"},
     {"name": "Katadata",       "url": "https://katadata.co.id/rss"},
+    # ── Global macro sources (lower item cap — high-volume feeds) ─────────────
+    # Articles pass is_macro_relevant() via English global keywords and are
+    # stored with ticker_id=NULL for macro-impact enrichment.
+    {"name": "Bloomberg Markets",   "url": "https://feeds.bloomberg.com/markets/news.rss",                   "max_items": 10},
+    {"name": "CNBC International",  "url": "https://www.cnbc.com/id/100727362/device/rss/rss.html",          "max_items": 10},
+    {"name": "Investing.com",       "url": "https://www.investing.com/rss/news_25.rss",                      "max_items": 10},
+    {"name": "Federal Reserve",     "url": "https://www.federalreserve.gov/feeds/press_all.xml",             "max_items":  5},
 ]
 
 HEADERS = {
@@ -284,24 +292,38 @@ def fetch_rss(feed: dict, limit: int = 50) -> list[dict]:
         print(f"[WARN] {feed['name']} RSS failed: {exc}")
         return []
     try:
-        root = ET.fromstring(resp.text)
+        # Strip UTF-8 BOM bytes if present (e.g. Federal Reserve feed returns
+        # ISO-8859-1 headers but a UTF-8 BOM prefix that breaks ET.fromstring).
+        xml_bytes = resp.content.lstrip(b'\xef\xbb\xbf')
+        root = ET.fromstring(xml_bytes)
     except ET.ParseError as exc:
         print(f"[WARN] {feed['name']} XML parse error: {exc}")
         return []
 
     results = []
-    for item in root.findall(".//item")[:limit]:
+    feed_limit = feed.get('max_items', limit)
+    for item in root.findall(".//item")[:feed_limit]:
         title = item.findtext("title", "").strip()
         link  = item.findtext("link",  "").strip()
         desc  = item.findtext("description", "").strip()
         if desc:
             desc = BeautifulSoup(desc, "html.parser").get_text(" ", strip=True)
-        pub_str = item.findtext("pubDate", "")
+        pub_str = item.findtext("pubDate", "").strip()
         pub: datetime | None = None
-        try:
-            pub = datetime.strptime(pub_str, "%a, %d %b %Y %H:%M:%S %z")
-        except ValueError:
-            pass  # pub stays None — will be dropped below
+        if pub_str:
+            # Try RFC-2822 via email.utils first — handles GMT/EDT/timezone
+            # abbreviations that strptime %z rejects (Bloomberg, CNBC, Fed Reserve).
+            try:
+                from email.utils import parsedate_to_datetime as _parse_rfc
+                pub = _parse_rfc(pub_str)
+            except Exception:
+                # Fallback: ISO datetime without timezone (Investing.com style)
+                try:
+                    pub = datetime.strptime(pub_str, "%Y-%m-%d %H:%M:%S").replace(
+                        tzinfo=timezone.utc
+                    )
+                except ValueError:
+                    pass  # pub stays None — freshness filter will drop it
         if not title or not link:
             continue
         results.append({
@@ -570,6 +592,17 @@ MACRO_KEYWORDS: list[str] = [
     "daya beli", "konsumsi rumah tangga",
     # Infrastructure / construction
     "infrastruktur", "konstruksi", "tender proyek",
+    # ── Global English macro keywords ─────────────────────────────────────────
+    # Oil & energy (Brent/WTI affect MEDC, PGAS, ESSA; CPO benchmark)
+    "oil price", "crude oil", "brent", "wti", "opec", "petroleum",
+    # Gold & precious metals (ANTM, MDKA, gold-linked flows)
+    "gold price", "gold hits", "silver price",
+    # Fed / global rates (capital-flow impact on IDX via USD/IDR)
+    "federal reserve", "fomc", "interest rate", "rate hike", "rate cut", "fed funds",
+    # Global macro (trade war, tariffs directly affect export-oriented IDX tickers)
+    "trade war", "us tariff", "global recession", "commodity price", "china gdp",
+    # Geopolitics (oil-price shock risk; shipping-route disruptions)
+    "iran", "middle east", "strait of hormuz",
 ]
 
 _MACRO_KEYWORDS_LOWER = [kw.lower() for kw in MACRO_KEYWORDS]

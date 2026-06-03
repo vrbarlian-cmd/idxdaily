@@ -72,6 +72,28 @@ export default function DisclaimerPage() {
             </p>
           </section>
 
+          <section className="space-y-2">
+            <h2 className="font-semibold text-base text-[#0f172a]">Hak Cipta &amp; Konten Pihak Ketiga</h2>
+            <p>
+              IDXDaily menampilkan ringkasan singkat (2 kalimat) dari artikel berita keuangan
+              dengan tautan langsung ke sumber asli. Kami tidak mereproduksi artikel secara penuh
+              dan selalu mencantumkan nama sumber serta tautan &ldquo;Baca &rarr;&rdquo; ke artikel
+              original.
+            </p>
+            <p>
+              Jika Anda adalah pemilik konten dan keberatan dengan tampilan ringkasan artikel Anda
+              di IDXDaily, silakan hubungi kami di{' '}
+              <a href="mailto:vrbarlian@gmail.com" className="underline text-stone-500">
+                vrbarlian@gmail.com
+              </a>{' '}
+              dan kami akan segera menindaklanjuti dalam 1x24 jam.
+            </p>
+            <p>
+              IDXDaily tidak berafiliasi dengan sumber berita manapun yang ditampilkan di platform
+              ini.
+            </p>
+          </section>
+
           <p className="text-xs text-stone-500 border-t border-stone-100 pt-4">
             Pertanyaan? Hubungi kami di{' '}
             <a href="mailto:vrbarlian@gmail.com" className="underline">vrbarlian@gmail.com</a>.

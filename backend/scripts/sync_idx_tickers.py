@@ -117,6 +117,10 @@ TICKER_TAG_ENABLED: set[str] = {
     # AGRO, SAFE, ASRI, LIVE, SGER, ABMM, TOBA, PSGO, ANDI, POLA) are
     # handled by the auto-promote logic in upsert_tickers / refresh_aliases_only
     # and will be re-enabled automatically once they sustain >= 5 articles/30d.
+    # 2026-06-03 manual enable — active tickers across energy, banking, mining:
+    "RAJA", "ARKO", "RMKE", "VKTR", "INDY",
+    "PACK", "PADI", "BNGA", "BKSL", "ELSA",
+    "ENRG", "BRMS", "ITMG", "ADMR",
 }
 
 # Common words to skip when generating 2-word aliases (too generic to match)

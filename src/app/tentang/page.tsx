@@ -25,8 +25,8 @@ export default function TentangPage() {
             Indeks Fear &amp; Greed IDXDaily dihitung setiap hari dari dua komponen utama:
           </p>
           <ul className="list-disc list-inside space-y-1 pl-2">
-            <li><span className="font-medium">Aliran dana asing</span> — net buy/sell investor asing di BEI (data Stockbit/RTI). Asing jual besar → Fear; asing beli besar → Greed.</li>
-            <li><span className="font-medium">Aliran dana domestik</span> — selisih beli/jual investor domestik sebagai penyeimbang sinyal asing.</li>
+            <li><span className="font-medium">Aliran dana asing</span> - net buy/sell investor asing di BEI (data Stockbit/RTI). Asing jual besar → Fear; asing beli besar → Greed.</li>
+            <li><span className="font-medium">Aliran dana domestik</span> - selisih beli/jual investor domestik sebagai penyeimbang sinyal asing.</li>
           </ul>
           <p>
             Kedua komponen dinormalisasi ke skala 0–100 dan dibobot (asing 60%, domestik 40%).
@@ -47,7 +47,7 @@ export default function TentangPage() {
             Artikel dengan label <span className="bg-stone-100 px-1 rounded font-mono text-xs">Diringkas AI</span> berarti
             teks asli artikel sudah diproses oleh model bahasa (Google Gemini) untuk menghasilkan
             ringkasan singkat, label sentimen (Bullish / Bearish / Neutral), dan skor dampak.
-            Ringkasan bukan pengganti artikel asli — selalu baca sumber untuk konteks lengkap.
+            Ringkasan bukan pengganti artikel asli - selalu baca sumber untuk konteks lengkap.
           </p>
 
           <p className="text-xs text-stone-500 border-t border-stone-100 pt-4">

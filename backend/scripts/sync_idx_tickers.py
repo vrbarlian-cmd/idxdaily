@@ -103,6 +103,15 @@ TICKER_TAG_ENABLED: set[str] = {
     # DATA  — Remala Abadi; 14 articles/30d arriving via RSS text-match
     # AMAN  — Makmur Berkah Amanda; 12 articles/30d arriving via RSS text-match
     "TPIA", "AMMN", "DATA", "AMAN",
+    # 2026-06-03 systematic audit — tickers with 5+ articles/30d via RSS
+    # text-detection but missing dedicated GN sweeps:
+    "RELI", "BUDI",                  # 8 articles/30d
+    "GMFI", "BALI", "BUKA", "TMAS", "UNIT",  # 7 articles/30d
+    "BELI", "CBRE", "GUNA", "MGRO", "SINI",  # 5 articles/30d
+    # Note: tickers with 3-4 articles/30d (UVCR, INDY, TCPI, BUAH, MAIN,
+    # AGRO, SAFE, ASRI, LIVE, SGER, ABMM, TOBA, PSGO, ANDI, POLA) are
+    # handled by the auto-promote logic in upsert_tickers / refresh_aliases_only
+    # and will be re-enabled automatically once they sustain >= 5 articles/30d.
 }
 
 # Common words to skip when generating 2-word aliases (too generic to match)
@@ -227,6 +236,43 @@ def scrape_wikipedia() -> dict[str, str]:
 
 
 # ---------------------------------------------------------------------------
+# Auto-promote helper
+# ---------------------------------------------------------------------------
+
+async def _auto_promote(conn: asyncpg.Connection, dry_run: bool) -> None:
+    """Enable ticker_tag_enabled for any ticker that has accumulated >= 5
+    articles in the last 30 days via RSS text-detection.
+
+    This self-heals the enabled list: active tickers get promoted to 15-minute
+    Google News coverage automatically without manual intervention.  Called at
+    the end of both upsert_tickers and refresh_aliases_only.
+    """
+    rows = await conn.fetch(
+        """
+        SELECT t.symbol, COUNT(a.id) AS cnt
+        FROM tickers t
+        LEFT JOIN articles a ON a.ticker_id = t.id
+          AND a.published_at >= NOW() - INTERVAL '30 days'
+        WHERE t.ticker_tag_enabled = FALSE
+        GROUP BY t.symbol
+        HAVING COUNT(a.id) >= 5
+        ORDER BY COUNT(a.id) DESC
+        """
+    )
+    if not rows:
+        return
+    syms = [r["symbol"] for r in rows]
+    if dry_run:
+        print(f"[sync] Auto-promote (dry-run) would enable {len(syms)}: {syms}")
+        return
+    await conn.execute(
+        "UPDATE tickers SET ticker_tag_enabled = TRUE WHERE symbol = ANY($1)",
+        syms,
+    )
+    print(f"[sync] Auto-promoted {len(syms)} tickers (>= 5 articles/30d): {syms}")
+
+
+# ---------------------------------------------------------------------------
 # DB upsert
 # ---------------------------------------------------------------------------
 
@@ -280,6 +326,9 @@ async def upsert_tickers(
                 )
                 inserted += 1
 
+        # Auto-promote active tickers not yet in TICKER_TAG_ENABLED
+        await _auto_promote(conn, dry_run)
+
         if not dry_run:
             total = await conn.fetchval("SELECT count(*) FROM tickers")
             tag_n = await conn.fetchval(
@@ -317,6 +366,9 @@ async def refresh_aliases_only(overrides: dict, dry_run: bool) -> None:
                 )
             else:
                 print(f"  {row['symbol']:<6} aliases={aliases[:3]}")
+        # Auto-promote active tickers not yet in TICKER_TAG_ENABLED
+        await _auto_promote(conn, dry_run)
+
         if not dry_run:
             print(f"[sync] Aliases refreshed for {len(rows)} tickers.")
     finally:

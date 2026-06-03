@@ -501,6 +501,16 @@ async def load_tag_enabled_ticker_rows(conn) -> list[dict]:
             for r in rows]
 
 
+async def load_disabled_ticker_rows(conn) -> list[dict]:
+    """Return ticker info for all ticker_tag_enabled=FALSE tickers (SmallcapSweep)."""
+    rows = await conn.fetch(
+        "SELECT symbol, name, aliases FROM tickers "
+        "WHERE ticker_tag_enabled = FALSE ORDER BY symbol"
+    )
+    return [{"symbol": r["symbol"], "name": r["name"], "aliases": list(r["aliases"] or [])}
+            for r in rows]
+
+
 async def load_all_ticker_rows(conn, tier: str = "all") -> list[dict]:
     """
     Return full ticker info for Google News queries.
@@ -707,6 +717,7 @@ async def run_once(
     use_ticker_tags: bool,
     use_google_news: bool = False,
     gn_tier: str = "tag",  # "tag" | "big" | "small" | "all"
+    skip_enabled: bool = False,  # SmallcapSweep: query only ticker_tag_enabled=FALSE
 ) -> None:
     # ── Phase 1: Load ticker metadata (quick DB round-trip) ──────────────────
     # Open and immediately close the connection so scraping (which can take
@@ -720,7 +731,9 @@ async def run_once(
         shared_aliases = _build_shared_aliases(alias_entries)
 
         if use_google_news:
-            if gn_tier == "tag":
+            if skip_enabled:
+                ticker_rows_gn = await load_disabled_ticker_rows(conn)
+            elif gn_tier == "tag":
                 ticker_rows_gn = await load_tag_enabled_ticker_rows(conn)
             else:
                 ticker_rows_gn = await load_all_ticker_rows(conn, tier=gn_tier)
@@ -744,7 +757,7 @@ async def run_once(
 
     # ── Source 2: Google News RSS per-ticker ─────────────────────────────────
     if use_google_news:
-        tier_label = f"tier={gn_tier}"
+        tier_label = "disabled-only (SmallcapSweep)" if skip_enabled else f"tier={gn_tier}"
         print(f"[ingest] Google News: querying {len(ticker_rows_gn)} tickers "
               f"({tier_label}, 3s delay each) ...")
         gn_articles = fetch_all_google_news(
@@ -1025,15 +1038,27 @@ def main() -> None:
             default="tag",
             help=(
                 "Which tickers to query for Google News. "
-                "'tag' = tag-enabled only (~94 tickers, default); "
+                "'tag' = tag-enabled only (~116 tickers, default); "
                 "'big' = tickers with market_cap data, largest first; "
                 "'small' = tickers with no market_cap (long-tail); "
                 "'all' = every ticker in DB, sorted by market_cap DESC. "
                 "Recommended schedule: --gn-tier big every 2h, --gn-tier small once daily."
             ),
         )
+        parser.add_argument(
+            "--skip-enabled",
+            action="store_true",
+            help=(
+                "Google News: query only ticker_tag_enabled=FALSE tickers (~795 tickers). "
+                "Used by SmallcapSweep (06:00-08:00 WIB window, once daily). "
+                "Overrides --gn-tier when set."
+            ),
+        )
         args = parser.parse_args()
-        asyncio.run(run_once(args.limit, args.ticker_tags, args.google_news, args.gn_tier))
+        asyncio.run(run_once(
+            args.limit, args.ticker_tags, args.google_news,
+            args.gn_tier, args.skip_enabled,
+        ))
     finally:
         _release_lock()
 

@@ -103,6 +103,11 @@ TICKER_TAG_ENABLED: set[str] = {
     # DATA  — Remala Abadi; 14 articles/30d arriving via RSS text-match
     # AMAN  — Makmur Berkah Amanda; 12 articles/30d arriving via RSS text-match
     "TPIA", "AMMN", "DATA", "AMAN",
+    # Prajogo-group tickers missing from Wikipedia IDX Composite page —
+    # inserted manually into DB; must stay in this set to survive future syncs.
+    # BREN  — Barito Renewables Energy (green-energy flagship, Prajogo group)
+    # NCKL  — Trimegah Bangun Persada (nickel upstream, Prajogo group)
+    "BREN", "NCKL",
     # 2026-06-03 systematic audit — tickers with 5+ articles/30d via RSS
     # text-detection but missing dedicated GN sweeps:
     "RELI", "BUDI",                  # 8 articles/30d

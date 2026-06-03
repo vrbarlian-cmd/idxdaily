@@ -9,8 +9,8 @@ REM     Expected duration: ~6-7 min. Leaves ~8-9 min gap. Very polite.
 REM
 REM   Off-hours / weekends:
 REM     RSS + HTML + Enrich only (no Google News).
-REM     Runs at most once every 2 hours (enforced via timestamp file).
-REM     Skips silently if < 2h since last off-hours run.
+REM     Runs at most once every 30 minutes (enforced via timestamp file).
+REM     Skips silently if < 30min since last off-hours run.
 
 set PROJECT=C:\Users\Vito\OneDrive\Documents\AI News
 set LOGFILE=%PROJECT%\logs\ingest_scheduler.log
@@ -35,7 +35,7 @@ if exist "%STAMP%" (
     powershell -NoProfile -Command ^
         "$last = (Get-Item '%STAMP%').LastWriteTime; ^
          $mins = (New-TimeSpan -Start $last -End (Get-Date)).TotalMinutes; ^
-         if ($mins -lt 120) { exit 1 } else { exit 0 }"
+         if ($mins -lt 30) { exit 1 } else { exit 0 }"
     if %ERRORLEVEL% NEQ 0 (
         exit /b 0
     )

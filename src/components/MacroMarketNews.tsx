@@ -207,9 +207,9 @@ export default async function MacroMarketNews() {
         { category: 'MACRO',      impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
         { category: 'REGULATORY', impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
         { category: 'SECTOR',     impactScore: { gte: 7.0 }, source: { notIn: GLOBAL_SOURCES } },
-        // Global sources — no score threshold; Gemini rates indirect IDX impact
-        // conservatively (4.0–5.5) which is correct but below the domestic threshold.
-        { source: { in: GLOBAL_SOURCES }, aiSummary: { not: null } },
+        // Global sources — 4.5 floor filters pure noise while keeping
+        // conservative Gemini scores (4.0-5.5) for genuinely relevant items.
+        { source: { in: GLOBAL_SOURCES }, aiSummary: { not: null }, impactScore: { gte: 4.5 } },
       ],
     },
     orderBy: [

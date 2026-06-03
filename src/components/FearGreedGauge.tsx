@@ -47,7 +47,7 @@ function GaugeSVG({ score, isNull }: { score: number; isNull: boolean }) {
         stroke="url(#arcGrad)"
         strokeWidth="20"
         strokeLinecap="round"
-        strokeDasharray={`${(score / 100) * arcLen} ${arcLen}`}
+        strokeDasharray={`${((score / 100) * arcLen).toFixed(3)} ${arcLen.toFixed(3)}`}
       />
 
       {/* Needle + tip circle */}
@@ -151,6 +151,7 @@ export default function FearGreedGauge({
   indexSubtitle?: string;
 }) {
   const [showPopover, setShowPopover] = useState(false);
+  const [wib, setWib] = useState('');
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -164,12 +165,16 @@ export default function FearGreedGauge({
     return () => document.removeEventListener('mousedown', handler);
   }, [showPopover]);
 
+  // Set WIB time on the client only — new Date() during SSR produces a
+  // different clock value than during hydration, causing a hydration mismatch.
+  useEffect(() => {
+    setWib(new Date().toLocaleTimeString('id-ID', {
+      hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
+    }));
+  }, []);
+
   const displayScore = data.score ?? 50;
   const { text, bg, hex } = zoneColors(data.score);
-
-  const wib = new Date().toLocaleTimeString('id-ID', {
-    hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
-  });
 
   return (
     <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
@@ -227,7 +232,7 @@ export default function FearGreedGauge({
             filter: `drop-shadow(0 0 6px ${hex}55)`,
           } : {}}
         >
-          {data.score != null ? Math.round(data.score) : '—'}
+          {data.score != null ? Number(data.score).toFixed(1) : '—'}
         </p>
         <span className={`inline-block mt-2.5 px-4 py-1 rounded-full text-xs font-bold text-white ${bg}`}>
           {data.label}

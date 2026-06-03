@@ -815,12 +815,22 @@ async def run_once(
         # arrived via RSS in run N are caught when GN brings the same story in
         # run N+1.  dedup_batch() only deduplicates within a single scrape
         # batch; this closes the cross-batch gap using the same Jaccard logic.
+        #
+        # We also fetch ticker_sym and pub_date so the ALWAYS_INSERT secondary
+        # check can compare same-ticker same-day titles (see below).
         _recent_rows = await conn.fetch(
-            "SELECT title, source FROM articles "
-            "WHERE published_at >= NOW() - INTERVAL '6 hours'"
+            "SELECT a.title, a.source, "
+            "       t.symbol AS ticker_sym, "
+            "       DATE(a.published_at AT TIME ZONE 'Asia/Jakarta') AS pub_date "
+            "FROM articles a "
+            "LEFT JOIN tickers t ON a.ticker_id = t.id "
+            "WHERE a.published_at >= NOW() - INTERVAL '6 hours'"
         )
         _recent_norms: list[tuple] = [
-            (_normalise(r["title"]), _word_set(_normalise(r["title"])), r["source"])
+            (
+                _normalise(r["title"]), _word_set(_normalise(r["title"])),
+                r["source"], r["ticker_sym"], r["pub_date"],
+            )
             for r in _recent_rows
         ]
         print(f"[ingest] Inter-batch dedup anchor: {len(_recent_norms)} articles in last 6h")
@@ -835,15 +845,38 @@ async def run_once(
             # on the same company but represent genuinely distinct news events.
             _title_lower = art["title"].lower()
             if any(kw in _title_lower for kw in ALWAYS_INSERT_KEYWORDS):
-                pass  # skip inter-batch dedup entirely for this article
+                # Secondary guard: multiple outlets covering the SAME analyst
+                # action on the SAME ticker on the SAME DAY are duplicates even
+                # though the keyword bypass is active.  Compare same-ticker
+                # same-day titles at a relaxed Jaccard threshold (0.50).
+                # Only applies to GN articles (detected_ticker is set); RSS
+                # articles without a known ticker skip this check.
+                _art_ticker  = art.get("detected_ticker")
+                _art_pub_day = (
+                    art["published_at"].date()
+                    if art.get("published_at") else None
+                )
+                _same_story = False
+                if _art_ticker and _art_pub_day:
+                    for _db_norm, _db_words, _db_src, _db_ticker, _db_date in _recent_norms:
+                        if (
+                            _db_ticker == _art_ticker
+                            and _db_date == _art_pub_day
+                            and _jaccard(_art_words, _db_words) >= 0.50
+                        ):
+                            _same_story = True
+                            break
+                if _same_story:
+                    skipped_dup += 1
+                    continue
+                # else: genuine distinct event — insert regardless
             else:
                 _is_ibd = False
-                for _db_norm, _db_words, _db_src in _recent_norms:
+                for _db_norm, _db_words, _db_src, _db_ticker, _db_date in _recent_norms:
                     _same_src  = _norm_src(art.get("source")) == _norm_src(_db_src)
-                    # Cross-source threshold raised to 0.90 (was 0.80) — two
-                    # articles from different sources sharing 80 % of words are
-                    # almost always the same story, but the old threshold also
-                    # caught articles that merely share a prominent entity name.
+                    # Cross-source threshold 0.90 — two articles from different
+                    # sources sharing ≥ 90 % of words are almost certainly the
+                    # same story.
                     _threshold = 0.90
                     if _art_norm == _db_norm or _jaccard(_art_words, _db_words) >= _threshold:
                         _is_ibd = True

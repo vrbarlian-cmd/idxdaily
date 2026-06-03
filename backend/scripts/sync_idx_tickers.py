@@ -97,6 +97,12 @@ TICKER_TAG_ENABLED: set[str] = {
     # Small-caps added after root-cause diagnosis (2026-05-31)
     # tag_enabled=False was the sole reason these had zero GN coverage
     "BNBR", "CUAN", "ARTO", "MSIN",
+    # High-news-flow tickers enabled after 2026-06-03 audit:
+    # TPIA  — Chandra Asri Petrochemical (Prajogo group); JP Morgan + MSCI coverage
+    # AMMN  — Amman Mineral; major copper/gold producer, LQ45-tier news flow
+    # DATA  — Remala Abadi; 14 articles/30d arriving via RSS text-match
+    # AMAN  — Makmur Berkah Amanda; 12 articles/30d arriving via RSS text-match
+    "TPIA", "AMMN", "DATA", "AMAN",
 }
 
 # Common words to skip when generating 2-word aliases (too generic to match)

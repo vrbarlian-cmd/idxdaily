@@ -39,26 +39,24 @@ const RANGES: { key: Range; label: string }[] = [
   { key: 'all', label: 'All' },
 ];
 
-// Single sophisticated teal accent — clean, high-end financial journalism look
-const FG_COLOR = '#0d9488';
-
-// Coinglass-style zone fills: faint green bottom (fear), faint red top (greed)
+// Zone bands — only rendered on 3M / All views where the full range is relevant
 const ZONES = [
-  { y1: 0,  y2: 25,  fill: '#ecfdf5', label: 'Ext. Fear',  labelColor: '#059669' },
-  { y1: 25, y2: 45,  fill: '#f7fef9', label: 'Fear',        labelColor: '#6ee7b7' },
-  { y1: 45, y2: 55,  fill: '#fafafa', label: 'Neutral',     labelColor: '#9ca3af' },
-  { y1: 55, y2: 75,  fill: '#fff8f1', label: 'Greed',       labelColor: '#fb923c' },
-  { y1: 75, y2: 100, fill: '#fff1f2', label: 'Ext. Greed',  labelColor: '#f87171' },
+  { y1: 0,  y2: 25,  fill: '#f5f3ff', label: 'Ext. Fear',  labelColor: '#7C3AED' },
+  { y1: 25, y2: 40,  fill: '#fef2f2', label: 'Fear',        labelColor: '#EF4444' },
+  { y1: 40, y2: 60,  fill: '#fafafa', label: 'Neutral',     labelColor: '#9ca3af' },
+  { y1: 60, y2: 75,  fill: '#f0fdf4', label: 'Greed',       labelColor: '#10B981' },
+  { y1: 75, y2: 100, fill: '#dcfce7', label: 'Ext. Greed',  labelColor: '#059669' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// FIX 1: color by zone, not by gradient
 function fgColor(score: number): string {
-  if (score >= 75) return '#047857';
-  if (score >= 55) return '#059669';
-  if (score >= 45) return '#6b7280';
-  if (score >= 25) return '#d97706';
-  return '#b91c1c';
+  if (score >= 76) return '#059669';  // Extreme Greed — dark green
+  if (score >= 61) return '#10B981';  // Greed          — green
+  if (score >= 41) return '#F59E0B';  // Neutral        — amber
+  if (score >= 26) return '#EF4444';  // Fear           — red
+  return '#7C3AED';                    // Extreme Fear   — purple (visible on pale bg)
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -199,7 +197,6 @@ export default function FearGreedChart() {
     };
   }, [filteredPoints]);
 
-  // Single unified series — no backfill/live split
   const chartData = useMemo<ChartPoint[]>(() => {
     return filteredPoints.map(p => ({
       rawDate:   p.date,
@@ -219,6 +216,14 @@ export default function FearGreedChart() {
   const currentFg    = currentPoint?.fgSmoothed ?? null;
   const currentColor = currentFg != null ? fgColor(currentFg) : '#9ca3af';
 
+  // FIX 2: dynamic Y-axis domain — zooms to actual data range ±10
+  const fgValues = useMemo(
+    () => chartData.map(d => d.fgAll).filter((v): v is number => v != null),
+    [chartData],
+  );
+  const fgDomainMin = fgValues.length ? Math.max(0,   Math.min(...fgValues) - 10) : 0;
+  const fgDomainMax = fgValues.length ? Math.min(100, Math.max(...fgValues) + 10) : 100;
+
   const ihsgValues = chartData.map(p => p.ihsg).filter((v): v is number => v != null);
   const ihsgMin = ihsgValues.length ? Math.floor(Math.min(...ihsgValues) * 0.993 / 50) * 50 : 5000;
   const ihsgMax = ihsgValues.length ? Math.ceil(Math.max(...ihsgValues) * 1.007 / 50) * 50  : 8000;
@@ -226,6 +231,9 @@ export default function FearGreedChart() {
   const xInterval = chartData.length > 60 ? Math.floor(chartData.length / 10)
                   : chartData.length > 30 ? Math.floor(chartData.length / 8)
                   : 'preserveStartEnd';
+
+  // FIX 4: zone bands only on 3M/All where full range is meaningful
+  const showZones = range === '3m' || range === 'all';
 
   const hasData = !loading && !error && chartData.length > 0;
 
@@ -306,30 +314,8 @@ export default function FearGreedChart() {
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={chartData} margin={{ top: 4, right: isMobile ? 8 : 52, bottom: 0, left: 0 }}>
 
-              {/*
-                Coinglass-style gradient: top of chart = Extreme Greed = muted red/pink,
-                bottom = Extreme Fear = desaturated green. Stops match zone boundaries
-                (score 100→75→55→45→25→0 maps to y 0%→25%→45%→55%→75%→100%).
-              */}
-              <defs>
-                <linearGradient id="fgLineGradient" x1="0" y1="0" x2="0" y2="1">
-                  {/* top=score100=Extreme Greed → bottom=score0=Extreme Fear */}
-                  {/* Duplicate stops at boundaries create Coinglass-style hard color edges */}
-                  <stop offset="0%"   stopColor="#F6465D" />  {/* Extreme Greed */}
-                  <stop offset="25%"  stopColor="#F6465D" />
-                  <stop offset="25%"  stopColor="#F4742B" />  {/* Greed */}
-                  <stop offset="45%"  stopColor="#F4742B" />
-                  <stop offset="45%"  stopColor="#F0B90B" />  {/* Neutral */}
-                  <stop offset="50%"  stopColor="#F0B90B" />
-                  <stop offset="50%"  stopColor="#84CC9A" />  {/* Fear */}
-                  <stop offset="75%"  stopColor="#84CC9A" />
-                  <stop offset="75%"  stopColor="#00C076" />  {/* Extreme Fear */}
-                  <stop offset="100%" stopColor="#00C076" />
-                </linearGradient>
-              </defs>
-
-              {/* Zone bands */}
-              {ZONES.map(z => (
+              {/* FIX 4: zone bands only on 3M/All */}
+              {showZones && ZONES.map(z => (
                 <ReferenceArea
                   key={z.label}
                   yAxisId="fg"
@@ -341,7 +327,7 @@ export default function FearGreedChart() {
                     position: 'insideRight',
                     fontSize: 9,
                     fill: z.labelColor,
-                    opacity: 0.55,
+                    opacity: 0.6,
                     offset: 2,
                   }}
                 />
@@ -356,14 +342,15 @@ export default function FearGreedChart() {
                 axisLine={false}
                 interval={xInterval}
               />
+
+              {/* FIX 2: dynamic domain zooms to actual data range ±10 */}
               <YAxis
                 yAxisId="fg"
-                domain={[0, 100]}
+                domain={[fgDomainMin, fgDomainMax]}
                 tick={{ fontSize: 10, fill: '#9ca3af' }}
                 tickLine={false}
                 axisLine={false}
                 width={26}
-                ticks={[0, 25, 50, 75, 100]}
               />
               <YAxis
                 yAxisId="ihsg"
@@ -380,30 +367,30 @@ export default function FearGreedChart() {
 
               <Tooltip content={<CustomTooltip />} />
 
-              {/* IHSG — muted warm gray, behind F&G */}
+              {/* FIX 3: IHSG — dark blue, strokeWidth 2 */}
               <Line
                 yAxisId="ihsg"
                 type="monotone"
                 dataKey="ihsg"
-                stroke="#d1cdc7"
-                strokeWidth={1.5}
+                stroke="#1E40AF"
+                strokeWidth={2}
                 dot={false}
                 connectNulls
                 name="IHSG"
-                opacity={0.8}
+                opacity={0.7}
               />
 
-              {/* F&G — Coinglass-style segmented gradient line, semi-transparent */}
+              {/* FIX 1: F&G — solid color from current zone, not gradient */}
               <Line
                 yAxisId="fg"
                 type="monotone"
                 dataKey="fgAll"
-                stroke="url(#fgLineGradient)"
+                stroke={currentColor}
                 strokeWidth={2.5}
                 dot={false}
                 connectNulls
                 name="Fear & Greed"
-                activeDot={{ r: 4, fill: '#6b7280', stroke: 'white', strokeWidth: 2 }}
+                activeDot={{ r: 4, fill: currentColor, stroke: 'white', strokeWidth: 2 }}
               />
 
             </ComposedChart>
@@ -413,35 +400,33 @@ export default function FearGreedChart() {
           <div className="flex flex-wrap items-center justify-between mt-2 px-3 gap-y-1.5">
             <div className="flex items-center gap-4 text-xs">
               <div className="flex items-center gap-1.5">
-                <svg width="20" height="3" style={{ overflow: 'visible', display: 'block' }}>
-                  <defs>
-                    <linearGradient id="legendFgGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%"   stopColor="#00C076" />
-                      <stop offset="50%"  stopColor="#F0B90B" />
-                      <stop offset="100%" stopColor="#F6465D" />
-                    </linearGradient>
-                  </defs>
-                  <line x1="0" y1="1.5" x2="20" y2="1.5" stroke="url(#legendFgGrad)" strokeWidth="2.5" />
-                </svg>
-                <span className="text-[#6b7280] font-medium">Fear &amp; Greed</span>
+                <span
+                  className="inline-block w-5 rounded"
+                  style={{ height: 2.5, backgroundColor: currentColor }}
+                />
+                <span className="font-medium" style={{ color: currentColor }}>
+                  Fear &amp; Greed
+                </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="inline-block w-5 border-t border-[#d1cdc7] rounded" />
-                <span className="text-[#9ca3af]">IHSG</span>
+                <span className="inline-block w-5 rounded" style={{ height: 2, backgroundColor: '#1E40AF', opacity: 0.7 }} />
+                <span className="text-[#1E40AF] opacity-70">IHSG</span>
               </div>
             </div>
 
-            <div className="hidden sm:flex items-center gap-1.5 text-[10px]">
-              {ZONES.map(z => (
-                <span key={z.label} className="flex items-center gap-0.5" title={z.label}>
-                  <span
-                    className="inline-block w-2 h-2 rounded-sm"
-                    style={{ backgroundColor: z.fill, border: `1px solid ${z.labelColor}40` }}
-                  />
-                  <span style={{ color: z.labelColor + 'bb' }}>{z.label.split(' ')[0]}</span>
-                </span>
-              ))}
-            </div>
+            {showZones && (
+              <div className="hidden sm:flex items-center gap-1.5 text-[10px]">
+                {ZONES.map(z => (
+                  <span key={z.label} className="flex items-center gap-0.5" title={z.label}>
+                    <span
+                      className="inline-block w-2 h-2 rounded-sm"
+                      style={{ backgroundColor: z.fill, border: `1px solid ${z.labelColor}40` }}
+                    />
+                    <span style={{ color: z.labelColor + 'bb' }}>{z.label.split(' ')[0]}</span>
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

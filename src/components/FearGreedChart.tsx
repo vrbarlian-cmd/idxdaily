@@ -30,13 +30,11 @@ interface ApiResponse {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// Legend zone entries — colors match gradient stops
+// Legend zone entries — 3 colors only
 const LEGEND_ZONES = [
-  { label: 'Ext. Fear',  color: '#059669' },
-  { label: 'Fear',       color: '#10B981' },
-  { label: 'Neutral',    color: '#F59E0B' },
-  { label: 'Greed',      color: '#EF4444' },
-  { label: 'Ext. Greed', color: '#DC2626' },
+  { label: 'Fear',    color: '#10B981' },  // Extreme Fear + Fear
+  { label: 'Neutral', color: '#F59E0B' },
+  { label: 'Greed',   color: '#EF4444' },  // Greed + Extreme Greed
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -273,18 +271,13 @@ export default function FearGreedChart() {
               */}
               <defs>
                 <linearGradient id="fgLineGradient" x1="0" y1="0" x2="0" y2="1">
-                  {/* top=score100=Extreme Greed → bottom=score0=Extreme Fear */}
-                  {/* Duplicate stops at boundaries create Coinglass-style hard color edges */}
-                  <stop offset="0%"   stopColor="#F6465D" />  {/* Extreme Greed */}
-                  <stop offset="25%"  stopColor="#F6465D" />
-                  <stop offset="25%"  stopColor="#F4742B" />  {/* Greed */}
-                  <stop offset="45%"  stopColor="#F4742B" />
-                  <stop offset="45%"  stopColor="#F0B90B" />  {/* Neutral */}
-                  <stop offset="50%"  stopColor="#F0B90B" />
-                  <stop offset="50%"  stopColor="#84CC9A" />  {/* Fear */}
-                  <stop offset="75%"  stopColor="#84CC9A" />
-                  <stop offset="75%"  stopColor="#00C076" />  {/* Extreme Fear */}
-                  <stop offset="100%" stopColor="#00C076" />
+                  {/* top=score100 → bottom=score0; 3-color simplified palette */}
+                  <stop offset="0%"   stopColor="#EF4444" />  {/* Greed + Extreme Greed */}
+                  <stop offset="40%"  stopColor="#EF4444" />
+                  <stop offset="40%"  stopColor="#F59E0B" />  {/* Neutral */}
+                  <stop offset="60%"  stopColor="#F59E0B" />
+                  <stop offset="60%"  stopColor="#10B981" />  {/* Fear + Extreme Fear */}
+                  <stop offset="100%" stopColor="#10B981" />
                 </linearGradient>
               </defs>
 
@@ -331,7 +324,7 @@ export default function FearGreedChart() {
                 type="monotone"
                 dataKey="ihsg"
                 stroke="#3B82F6"
-                strokeWidth={2}
+                strokeWidth={1.5}
                 dot={false}
                 connectNulls
                 name="IHSG"
@@ -344,7 +337,7 @@ export default function FearGreedChart() {
                 type="monotone"
                 dataKey="fgAll"
                 stroke="url(#fgLineGradient)"
-                strokeWidth={2.5}
+                strokeWidth={1.5}
                 dot={false}
                 connectNulls
                 name="Fear & Greed"

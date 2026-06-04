@@ -59,15 +59,15 @@ export default function FlowLogPage() {
             <p className="font-semibold text-stone-500 mb-1.5">Perintah harian (jalankan dari project root):</p>
             <p className="text-stone-700">{'# Asing — net saja (minimal):'}</p>
             <p>python -m backend.scripts.set_foreign_flow --value -1234.56</p>
-            <p className="text-stone-400 mt-1">{'# Asing — dengan total buy/sell untuk formula market-share (dianjurkan):'}</p>
-            <p>python -m backend.scripts.set_foreign_flow --value -1234.56 --buy-total 3500 --sell-total 4734</p>
+            <p className="text-stone-400 mt-1">{'# Asing — lengkap: buy/sell total + IHSG close (dianjurkan):'}</p>
+            <p>python -m backend.scripts.set_foreign_flow --value -1234.56 --buy-total 3500 --sell-total 4734 --ihsg 5839.785</p>
             <p className="text-stone-700 mt-2">{'# Domestik (wajib untuk Sentimen Ritel + Overall):'}</p>
             <p>python -m backend.scripts.set_domestic_flow --buy 6240 --sell 5180</p>
           </div>
           <p className="mt-2 text-xs text-stone-400">
-            set_foreign_flow → Foreign Score + Overall Score.
+            set_foreign_flow → Foreign Score + Overall Score (+ IHSG close jika --ihsg).
             set_domestic_flow → Domestic Score + Overall Score.
-            Kedua perintah memperbarui Overall secara otomatis.
+            compute_index berjalan otomatis — tidak perlu perintah terpisah.
           </p>
         </div>
 

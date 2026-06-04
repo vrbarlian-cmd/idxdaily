@@ -11,6 +11,9 @@ Usage (run from project root):
   --buy-total  Total foreign BUY value in IDR miliar (optional, from Stockbit).
                Enables retail-share-of-total-market formula in Domestic Score.
   --sell-total Total foreign SELL value in IDR miliar (optional).
+  --ihsg       IHSG close price (optional). Upserts ihsg_daily (source=manual_pdf)
+               so the F&G score reflects today's close immediately. compute_index
+               runs automatically at the end regardless.
   --date       YYYY-MM-DD. Defaults to today (WIB, UTC+7).
 
 Note: net = buy_total - sell_total.  If --buy-total and --sell-total are given,
@@ -41,6 +44,9 @@ def parse_args():
                    help="Total foreign BUY value, IDR miliar (optional, from Stockbit).")
     p.add_argument("--sell-total", type=float, default=None,
                    help="Total foreign SELL value, IDR miliar (optional).")
+    p.add_argument("--ihsg", type=float, default=None,
+                   help="IHSG close price (optional). Upserts ihsg_daily so F&G "
+                        "reflects today's close without waiting for sync_market.")
     p.add_argument("--date", default=today_wib(),
                    help="YYYY-MM-DD (default: today WIB)")
     return p.parse_args()
@@ -79,6 +85,18 @@ async def main():
         else:
             print(f"  Buy/sell total: not provided  (use --buy-total / --sell-total to enable market-share participation)")
 
+        # ── Optional: upsert IHSG close so F&G reflects today's price ──
+        if args.ihsg is not None:
+            await conn.execute("""
+                INSERT INTO ihsg_daily (date, close, source)
+                VALUES ($1, $2, 'manual_pdf')
+                ON CONFLICT (date) DO UPDATE SET
+                  close  = EXCLUDED.close,
+                  source = 'manual_pdf',
+                  fetched_at = NOW()
+            """, entry_date, args.ihsg)
+            print(f"\nIHSG close saved: {args.ihsg:,.3f} for {args.date}")
+
         # Show last 5 entries
         rows = await conn.fetch("""
             SELECT date, net_idr_billions, buy_idr_billions, sell_idr_billions
@@ -99,6 +117,8 @@ async def main():
         await conn.close()
 
     # Trigger compute_index (Foreign Score) and wait for it
+    if args.ihsg is not None:
+        print("\ncompute_index triggered automatically (IHSG close updated)")
     print("\nMemulai compute_index (Foreign Score)...")
     result = subprocess.run(
         [sys.executable, "-m", "backend.workers.compute_index"],

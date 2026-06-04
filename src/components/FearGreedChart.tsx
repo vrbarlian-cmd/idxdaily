@@ -15,8 +15,6 @@ import type { FearGreedHistoryPoint } from '@/app/api/fear-greed-history/route';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Range = '1w' | '1m' | '3m' | 'all';
-
 interface ChartPoint {
   rawDate:    string;
   dateLabel:  string;
@@ -36,13 +34,6 @@ interface ApiResponse {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-
-const RANGES: { key: Range; label: string }[] = [
-  { key: '1w',  label: '1W'  },
-  { key: '1m',  label: '1M'  },
-  { key: '3m',  label: '3M'  },
-  { key: 'all', label: 'All' },
-];
 
 // Zone color + legend reference (matches Line stroke colors exactly)
 const LINE_ZONES = [
@@ -168,7 +159,6 @@ function StatItem({
 
 export default function FearGreedChart() {
   const [allPoints, setAllPoints] = useState<FearGreedHistoryPoint[]>([]);
-  const [range,     setRange]     = useState<Range>('3m');
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [isMobile,  setIsMobile]  = useState(false);
@@ -190,19 +180,10 @@ export default function FearGreedChart() {
       .catch(() => { setError('Gagal memuat data historis'); setLoading(false); });
   }, []);
 
-  const filteredPoints = useMemo<FearGreedHistoryPoint[]>(() => {
-    if (range === 'all') return allPoints;
-    const days = range === '1w' ? 7 : range === '1m' ? 30 : 90;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    cutoff.setHours(0, 0, 0, 0);
-    return allPoints.filter(p => new Date(p.date + 'T00:00:00') >= cutoff);
-  }, [allPoints, range]);
-
   const rangeStats = useMemo(() => {
     let high = -Infinity, highDate = '';
     let low  =  Infinity, lowDate  = '';
-    for (const p of filteredPoints) {
+    for (const p of allPoints) {
       const v = p.fgSmoothed;
       if (v == null) continue;
       if (v > high) { high = v; highDate = p.date; }
@@ -214,13 +195,13 @@ export default function FearGreedChart() {
       low:      low  ===  Infinity ? null : low,
       lowDate:  lowDate  || null,
     };
-  }, [filteredPoints]);
+  }, [allPoints]);
 
   // Build chart data — one array, zone keys merged in. Every point in exactly ONE zone.
   // Carry-forward IHSG for holidays. ComposedChart uses this as its sole data prop.
   const chartData = useMemo<ChartPoint[]>(() => {
     let lastIhsg: number | null = null;
-    return filteredPoints.map(p => {
+    return allPoints.map(p => {
       if (p.ihsgClose !== null) lastIhsg = p.ihsgClose;
       const s = p.fgSmoothed;
       return {
@@ -236,26 +217,24 @@ export default function FearGreedChart() {
         label:      p.label,
       };
     });
-  }, [filteredPoints]);
+  }, [allPoints]);
 
   const currentPoint = useMemo(() => {
-    const live = filteredPoints.filter(p => !p.isBackfilled);
+    const live = allPoints.filter(p => !p.isBackfilled);
     if (live.length) return live[live.length - 1];
-    return filteredPoints.length ? filteredPoints[filteredPoints.length - 1] : null;
-  }, [filteredPoints]);
+    return allPoints.length ? allPoints[allPoints.length - 1] : null;
+  }, [allPoints]);
 
   const currentFg    = currentPoint?.fgSmoothed ?? null;
   const currentColor = currentFg != null ? fgColor(currentFg) : '#9ca3af';
 
-  // FIX 3: full 0-100 for "All" view; dynamic ±10 zoom for shorter views
+  // Dynamic Y-axis domain: zoom to actual data range ±10 (clamped 0–100)
   const fgValues = useMemo(
     () => chartData.map(d => d.fgAll).filter((v): v is number => v != null),
     [chartData],
   );
-  const fgDomainMin = range === 'all' ? 0
-    : fgValues.length ? Math.max(0,   Math.min(...fgValues) - 10) : 0;
-  const fgDomainMax = range === 'all' ? 100
-    : fgValues.length ? Math.min(100, Math.max(...fgValues) + 10) : 100;
+  const fgDomainMin = fgValues.length ? Math.max(0,   Math.min(...fgValues) - 10) : 0;
+  const fgDomainMax = fgValues.length ? Math.min(100, Math.max(...fgValues) + 10) : 100;
 
   const ihsgValues = chartData.map(p => p.ihsg).filter((v): v is number => v != null);
   const ihsgMin = ihsgValues.length ? Math.floor(Math.min(...ihsgValues) * 0.993 / 50) * 50 : 5000;
@@ -278,29 +257,11 @@ export default function FearGreedChart() {
     <div className="bg-white border border-[#e5e2db] rounded-2xl overflow-hidden">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-3 gap-3 flex-wrap">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
-            Sentimen vs Pasar
-          </p>
-          <h2 className="text-sm font-bold text-[#0f172a]">Fear &amp; Greed vs IHSG</h2>
-        </div>
-
-        <div className="flex items-center gap-0.5 bg-[#f8f7f4] border border-[#e5e2db] rounded-lg p-0.5">
-          {RANGES.map(r => (
-            <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                range === r.key
-                  ? 'bg-white text-[#0f172a] shadow-sm border border-[#e5e2db]'
-                  : 'text-[#9ca3af] hover:text-[#374151]'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+      <div className="px-5 pt-4 pb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
+          Sentimen vs Pasar
+        </p>
+        <h2 className="text-sm font-bold text-[#0f172a]">Fear &amp; Greed vs IHSG</h2>
       </div>
 
       {/* ── Stats strip ───────────────────────────────────────────────────── */}

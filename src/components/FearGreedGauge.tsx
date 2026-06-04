@@ -182,10 +182,10 @@ export default function FearGreedGauge({
       <div className="flex items-start justify-between">
         <div>
           <h2 className="text-base font-bold text-stone-900">
-            {indexTitle ?? 'IDX Fear & Greed Index'}
+            {indexTitle ?? 'IHSG Fear & Greed Index'}
           </h2>
           <p className="text-xs text-stone-500 mt-0.5">
-            {indexSubtitle ?? 'Multifactor IDX market sentiment'}
+            {indexSubtitle ?? 'Multifactor IHSG market sentiment'}
           </p>
         </div>
 

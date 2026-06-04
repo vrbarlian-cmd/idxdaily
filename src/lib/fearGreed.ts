@@ -1,5 +1,5 @@
 /**
- * IDX Fear & Greed Index — percentile-rank formula.
+ * IHSG Fear & Greed Index — percentile-rank formula.
  *
  * Each component is scored 0–100 relative to its own recent history
  * (CNN / CoinMarketCap methodology). Missing components are EXCLUDED

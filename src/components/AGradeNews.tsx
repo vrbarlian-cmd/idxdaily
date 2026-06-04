@@ -1,8 +1,11 @@
+'use client';
+
 import { Sparkles } from 'lucide-react';
-import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { format, formatDistanceToNow, isToday } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import useSWR from 'swr';
+import { useState } from 'react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -43,10 +46,33 @@ function impactScoreColor(s: string) {
   return 'text-[#94A3B8]';
 }
 
+function isMarketHours(): boolean {
+  const wibHour = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })
+  ).getHours();
+  return wibHour >= 9 && wibHour < 16;
+}
+
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface ArticleData {
+  id:          string;
+  title:       string;
+  aiSummary:   string | null;
+  url:         string | null;
+  source:      string;
+  publishedAt: string | null;   // ISO string from JSON
+  sentiment:   string;
+  impactScore: number;
+  ticker?:     { symbol: string } | null;
+  category?:   string | null;
+}
+
 // ── Date display ──────────────────────────────────────────────────────────────
 
-function PubDate({ date }: { date: Date | null }) {
-  if (!date) return null;
+function PubDate({ dateStr }: { dateStr: string | null }) {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
   if (isToday(date)) {
     const wib = date.toLocaleTimeString('id-ID', {
       hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
@@ -63,19 +89,6 @@ function PubDate({ date }: { date: Date | null }) {
 }
 
 // ── Article card ──────────────────────────────────────────────────────────────
-
-interface ArticleData {
-  id:          string;
-  title:       string;
-  aiSummary:   string | null;
-  url:         string | null;
-  source:      string;
-  publishedAt: Date | null;
-  sentiment:   string;
-  impactScore: number;
-  ticker?:     { symbol: string } | null;
-  category?:   string | null;
-}
 
 function ArticleCard({ a }: { a: ArticleData }) {
   return (
@@ -101,13 +114,13 @@ function ArticleCard({ a }: { a: ArticleData }) {
             </Link>
           )}
 
-          {/* Sentiment — dot + plain text */}
+          {/* Sentiment */}
           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold flex-shrink-0 ${sentimentTextColor(a.sentiment)}`}>
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sentimentDot(a.sentiment)}`} />
             {sentimentLabel(a.sentiment)}
           </span>
 
-          {/* AI badge — plain, no gradient */}
+          {/* AI badge */}
           {a.aiSummary && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#1a56db] flex-shrink-0">
               <Sparkles className="w-2.5 h-2.5" />
@@ -119,7 +132,7 @@ function ArticleCard({ a }: { a: ArticleData }) {
           <span className="text-[11px] text-[#9ca3af]">{a.source}</span>
 
           {/* Date */}
-          <PubDate date={a.publishedAt} />
+          <PubDate dateStr={a.publishedAt} />
         </div>
 
         {/* Body */}
@@ -172,26 +185,35 @@ function ArticleCard({ a }: { a: ArticleData }) {
   );
 }
 
+// ── SWR fetcher ───────────────────────────────────────────────────────────────
+
+const fetcher = (url: string) => fetch(url).then(r => r.json());
+
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default async function AGradeNews() {
-  const stockArticles = await prisma.news.findMany({
-    where: {
-      aiSummary:   { not: null },
-      impactScore: { gte: 7.0 },
-      tickerId:    { not: null },
-      category:    { notIn: ['MACRO', 'REGULATORY'] },
-    },
-    orderBy: [{ publishedAt: 'desc' }, { impactScore: 'desc' }],
-    take: 4,
-    select: {
-      id: true, title: true, aiSummary: true, url: true, source: true,
-      publishedAt: true, sentiment: true, impactScore: true, category: true,
-      ticker: { select: { symbol: true } },
-    },
-  });
+export default function AGradeNews() {
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  if (stockArticles.length === 0) return null;
+  const { data: articles = [], isLoading } = useSWR<ArticleData[]>(
+    '/api/high-impact-news',
+    fetcher,
+    {
+      refreshInterval:   60_000,
+      revalidateOnFocus: true,
+      dedupingInterval:  30_000,
+      onSuccess: () => setLastUpdated(new Date()),
+    },
+  );
+
+  if (!isLoading && articles.length === 0) return null;
+
+  const updatedLabel = lastUpdated
+    ? `Diperbarui ${lastUpdated.toLocaleTimeString('id-ID', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
+      })} WIB`
+    : null;
+
+  const marketHours = isMarketHours();
 
   return (
     <section>
@@ -206,18 +228,30 @@ export default async function AGradeNews() {
             High-Impact Saham
           </h2>
         </div>
-        <span className="text-[11px] text-[#9ca3af]">
-          impact ≥ 7.0 · AI enriched
-        </span>
+        <div className="flex items-center gap-2">
+          {marketHours && (
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title="Live" />
+          )}
+          {updatedLabel && (
+            <span className="text-[10px] text-[#9ca3af] tabular-nums">{updatedLabel}</span>
+          )}
+          <span className="text-[11px] text-[#9ca3af]">impact ≥ 7.0 · AI enriched</span>
+        </div>
       </div>
 
       <hr className="border-[#e5e2db] mb-4" />
 
-      <div className="space-y-3">
-        {stockArticles.map(a => (
-          <ArticleCard key={a.id} a={a} />
-        ))}
-      </div>
+      {isLoading ? (
+        <div className="space-y-3">
+          {[...Array(2)].map((_, i) => (
+            <div key={i} className="bg-white border border-[#e5e2db] rounded-xl h-24 animate-pulse" />
+          ))}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {articles.map(a => <ArticleCard key={a.id} a={a} />)}
+        </div>
+      )}
     </section>
   );
 }

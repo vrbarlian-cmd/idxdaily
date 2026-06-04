@@ -9,6 +9,13 @@ import { useState } from 'react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function isMarketHours(): boolean {
+  const wibHour = new Date(
+    new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })
+  ).getHours();
+  return wibHour >= 9 && wibHour < 16;
+}
+
 function accentBar(s: string) {
   if (s === 'BULLISH') return 'border-l-emerald-500';
   if (s === 'BEARISH') return 'border-l-red-500';
@@ -213,6 +220,9 @@ export default function MacroMarketNews() {
           </h2>
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
+          {isMarketHours() && (
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title="Live" />
+          )}
           {updatedLabel && (
             <span className="text-[10px] text-[#9ca3af] tabular-nums">{updatedLabel}</span>
           )}

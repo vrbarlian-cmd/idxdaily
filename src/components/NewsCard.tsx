@@ -28,6 +28,13 @@ export interface SentimentStyle {
   label:       string;
 }
 
+function scoreColor(s: string): string {
+  if (s === 'BULLISH') return 'text-[#1D9E75]';
+  if (s === 'BEARISH') return 'text-[#E24B4A]';
+  if (s === 'NEUTRAL')  return 'text-[#F59E0B]';
+  return 'text-[#94A3B8]';
+}
+
 export function sentimentStyle(s: string): SentimentStyle {
   if (s === 'BULLISH') return {
     borderColor: 'border-l-emerald-500',
@@ -131,7 +138,7 @@ export default function NewsCard({
       <div className="mb-3">
         <div className="flex items-baseline justify-between mb-1.5">
           <span className="text-[11px] text-[#9ca3af] uppercase tracking-wide">Dampak AI</span>
-          <span className="text-[14px] font-medium text-[#374151]">
+          <span className={`text-[14px] font-medium ${scoreColor(news.sentiment)}`}>
             {news.impactScore.toFixed(1)}
             <span className="text-[12px] font-normal text-[#9ca3af]">/10</span>
           </span>

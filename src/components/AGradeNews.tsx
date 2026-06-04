@@ -37,15 +37,10 @@ function impactBarColor(s: string) {
   return 'bg-amber-400';
 }
 function impactScoreColor(s: string) {
-  if (s === 'BULLISH') return 'text-emerald-700';
-  if (s === 'BEARISH') return 'text-red-600';
-  return 'text-amber-700';
-}
-function scoreValueColor(score: number): string {
-  if (score >= 8.5) return 'text-[#ef4444]';  // red   — very high impact
-  if (score >= 7.0) return 'text-[#f59e0b]';  // amber — medium-high
-  if (score >= 5.5) return 'text-[#14b8a6]';  // teal  — moderate
-  return 'text-[#94a3b8]';                     // slate — low
+  if (s === 'BULLISH') return 'text-[#1D9E75]';
+  if (s === 'BEARISH') return 'text-[#E24B4A]';
+  if (s === 'NEUTRAL')  return 'text-[#F59E0B]';
+  return 'text-[#94A3B8]';
 }
 
 // ── Date display ──────────────────────────────────────────────────────────────
@@ -166,7 +161,7 @@ function ArticleCard({ a }: { a: ArticleData }) {
 
           {/* Impact score */}
           <div className="flex-shrink-0 text-right">
-            <span className={`text-2xl font-bold leading-none tabular-nums ${scoreValueColor(a.impactScore)}`}>
+            <span className={`text-2xl font-bold leading-none tabular-nums ${impactScoreColor(a.sentiment)}`}>
               {a.impactScore.toFixed(1)}
             </span>
             <p className="text-[10px] text-[#9ca3af] mt-0.5">/10</p>

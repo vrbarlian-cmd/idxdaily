@@ -32,9 +32,10 @@ function sentimentTextColor(s: string) {
   return 'text-amber-700';
 }
 function impactColor(s: string) {
-  if (s === 'BULLISH') return 'text-emerald-700';
-  if (s === 'BEARISH') return 'text-red-600';
-  return 'text-amber-700';
+  if (s === 'BULLISH') return 'text-[#1D9E75]';
+  if (s === 'BEARISH') return 'text-[#E24B4A]';
+  if (s === 'NEUTRAL')  return 'text-[#F59E0B]';
+  return 'text-[#94A3B8]';
 }
 function categoryBadge(c: string | null) {
   if (c === 'MACRO')      return 'bg-blue-50 text-blue-700 border-blue-100';

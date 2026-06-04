@@ -15,17 +15,14 @@ import type { FearGreedHistoryPoint } from '@/app/api/fear-greed-history/route';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+type Range = '1w' | '1m' | '3m' | 'all';
+
 interface ChartPoint {
-  rawDate:    string;
-  dateLabel:  string;
-  fgAll:      number | null;
-  fg_ef:      number | null;   // Extreme Fear  (score < 25)
-  fg_fear:    number | null;   // Fear          (25–40)
-  fg_neutral: number | null;   // Neutral       (40–60)
-  fg_greed:   number | null;   // Greed         (60–75)
-  fg_eg:      number | null;   // Extreme Greed (75+)
-  ihsg:       number | null;
-  label:      string;
+  rawDate:   string;
+  dateLabel: string;
+  fgAll:     number | null;
+  ihsg:      number | null;
+  label:     string;
 }
 
 interface ApiResponse {
@@ -35,23 +32,33 @@ interface ApiResponse {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+const RANGES: { key: Range; label: string }[] = [
+  { key: '1w',  label: '1W'  },
+  { key: '1m',  label: '1M'  },
+  { key: '3m',  label: '3M'  },
+  { key: 'all', label: 'All' },
+];
+
+// Single sophisticated teal accent — clean, high-end financial journalism look
+const FG_COLOR = '#0d9488';
+
+// Coinglass-style zone fills: faint green bottom (fear), faint red top (greed)
+const ZONES = [
+  { y1: 0,  y2: 25,  fill: '#ecfdf5', label: 'Ext. Fear',  labelColor: '#059669' },
+  { y1: 25, y2: 45,  fill: '#f7fef9', label: 'Fear',        labelColor: '#6ee7b7' },
+  { y1: 45, y2: 55,  fill: '#fafafa', label: 'Neutral',     labelColor: '#9ca3af' },
+  { y1: 55, y2: 75,  fill: '#fff8f1', label: 'Greed',       labelColor: '#fb923c' },
+  { y1: 75, y2: 100, fill: '#fff1f2', label: 'Ext. Greed',  labelColor: '#f87171' },
+];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// Line color: contrarian (Fear=green=opportunity, Greed=red=caution)
-// Must match the Line stroke colors exactly
 function fgColor(score: number): string {
-  if (score < 25)  return '#059669';  // Extreme Fear  — dark green
-  if (score < 40)  return '#10B981';  // Fear          — green
-  if (score < 60)  return '#F59E0B';  // Neutral       — yellow
-  if (score < 75)  return '#EF4444';  // Greed         — red
-  return '#DC2626';                    // Extreme Greed — dark red
-}
-
-// Stats text color: intuitive (Fear=red=bad, Greed=green=good)
-function getFGTextColor(score: number): string {
-  if (score <= 40) return '#EF4444';  // Fear zones — red text
-  if (score <= 60) return '#F59E0B';  // Neutral    — yellow text
-  return '#10B981';                    // Greed zones — green text
+  if (score >= 75) return '#047857';
+  if (score >= 55) return '#059669';
+  if (score >= 45) return '#6b7280';
+  if (score >= 25) return '#d97706';
+  return '#b91c1c';
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -140,19 +147,11 @@ function StatItem({
   );
 }
 
-// Zone Lines config — color matches legend and line strokes
-const ZONE_LINES = [
-  { key: 'fg_ef'     as const, stroke: '#059669', label: 'Ext. Fear'  },
-  { key: 'fg_fear'   as const, stroke: '#10B981', label: 'Fear'       },
-  { key: 'fg_neutral'as const, stroke: '#F59E0B', label: 'Neutral'    },
-  { key: 'fg_greed'  as const, stroke: '#EF4444', label: 'Greed'      },
-  { key: 'fg_eg'     as const, stroke: '#DC2626', label: 'Ext. Greed' },
-] as const;
-
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function FearGreedChart() {
   const [allPoints, setAllPoints] = useState<FearGreedHistoryPoint[]>([]);
+  const [range,     setRange]     = useState<Range>('3m');
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [isMobile,  setIsMobile]  = useState(false);
@@ -174,10 +173,19 @@ export default function FearGreedChart() {
       .catch(() => { setError('Gagal memuat data historis'); setLoading(false); });
   }, []);
 
+  const filteredPoints = useMemo<FearGreedHistoryPoint[]>(() => {
+    if (range === 'all') return allPoints;
+    const days = range === '1w' ? 7 : range === '1m' ? 30 : 90;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    cutoff.setHours(0, 0, 0, 0);
+    return allPoints.filter(p => new Date(p.date + 'T00:00:00') >= cutoff);
+  }, [allPoints, range]);
+
   const rangeStats = useMemo(() => {
     let high = -Infinity, highDate = '';
     let low  =  Infinity, lowDate  = '';
-    for (const p of allPoints) {
+    for (const p of filteredPoints) {
       const v = p.fgSmoothed;
       if (v == null) continue;
       if (v > high) { high = v; highDate = p.date; }
@@ -189,45 +197,27 @@ export default function FearGreedChart() {
       low:      low  ===  Infinity ? null : low,
       lowDate:  lowDate  || null,
     };
-  }, [allPoints]);
+  }, [filteredPoints]);
 
-  // Build chart data — zone keys merged in, IHSG carry-forward for holidays.
+  // Single unified series — no backfill/live split
   const chartData = useMemo<ChartPoint[]>(() => {
-    let lastIhsg: number | null = null;
-    return allPoints.map(p => {
-      if (p.ihsgClose !== null) lastIhsg = p.ihsgClose;
-      const s = p.fgSmoothed;
-      return {
-        rawDate:    p.date,
-        dateLabel:  formatDateLabel(p.date),
-        fgAll:      s,
-        fg_ef:      s !== null && s < 25              ? s : null,
-        fg_fear:    s !== null && s >= 25 && s < 40   ? s : null,
-        fg_neutral: s !== null && s >= 40 && s < 60   ? s : null,
-        fg_greed:   s !== null && s >= 60 && s < 75   ? s : null,
-        fg_eg:      s !== null && s >= 75              ? s : null,
-        ihsg:       p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
-        label:      p.label,
-      };
-    });
-  }, [allPoints]);
+    return filteredPoints.map(p => ({
+      rawDate:   p.date,
+      dateLabel: formatDateLabel(p.date),
+      fgAll:     p.fgSmoothed,
+      ihsg:      p.ihsgClose,
+      label:     p.label,
+    }));
+  }, [filteredPoints]);
 
   const currentPoint = useMemo(() => {
-    const live = allPoints.filter(p => !p.isBackfilled);
+    const live = filteredPoints.filter(p => !p.isBackfilled);
     if (live.length) return live[live.length - 1];
-    return allPoints.length ? allPoints[allPoints.length - 1] : null;
-  }, [allPoints]);
+    return filteredPoints.length ? filteredPoints[filteredPoints.length - 1] : null;
+  }, [filteredPoints]);
 
   const currentFg    = currentPoint?.fgSmoothed ?? null;
   const currentColor = currentFg != null ? fgColor(currentFg) : '#9ca3af';
-
-  // Dynamic Y-axis domain: zoom to actual data range ±10 (clamped 0–100)
-  const fgValues = useMemo(
-    () => chartData.map(d => d.fgAll).filter((v): v is number => v != null),
-    [chartData],
-  );
-  const fgDomainMin = fgValues.length ? Math.max(0,   Math.min(...fgValues) - 10) : 0;
-  const fgDomainMax = fgValues.length ? Math.min(100, Math.max(...fgValues) + 10) : 100;
 
   const ihsgValues = chartData.map(p => p.ihsg).filter((v): v is number => v != null);
   const ihsgMin = ihsgValues.length ? Math.floor(Math.min(...ihsgValues) * 0.993 / 50) * 50 : 5000;
@@ -243,33 +233,51 @@ export default function FearGreedChart() {
     <div className="bg-white border border-[#e5e2db] rounded-2xl overflow-hidden">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="px-5 pt-4 pb-3">
-        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
-          Sentimen vs Pasar
-        </p>
-        <h2 className="text-sm font-bold text-[#0f172a]">Fear &amp; Greed vs IHSG</h2>
+      <div className="flex items-center justify-between px-5 pt-4 pb-3 gap-3 flex-wrap">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
+            Sentimen vs Pasar
+          </p>
+          <h2 className="text-sm font-bold text-[#0f172a]">Fear &amp; Greed vs IHSG</h2>
+        </div>
+
+        <div className="flex items-center gap-0.5 bg-[#f8f7f4] border border-[#e5e2db] rounded-lg p-0.5">
+          {RANGES.map(r => (
+            <button
+              key={r.key}
+              onClick={() => setRange(r.key)}
+              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
+                range === r.key
+                  ? 'bg-white text-[#0f172a] shadow-sm border border-[#e5e2db]'
+                  : 'text-[#9ca3af] hover:text-[#374151]'
+              }`}
+            >
+              {r.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* ── Stats strip ───────────────────────────────────────────────────── */}
       {hasData && (
-        <div className="flex flex-wrap items-center border-t border-[#f0ede8] py-2.5 gap-y-1.5 divide-x divide-[#f0ede8]">
+        <div className="flex items-center border-t border-[#f0ede8] divide-x divide-[#f0ede8] py-2.5">
           <StatItem
             label="Now"
             value={currentFg != null ? Math.round(currentFg) : null}
             sub={currentPoint?.label}
-            color={currentFg != null ? getFGTextColor(currentFg) : '#9ca3af'}
+            color={currentColor}
           />
           <StatItem
             label="High"
             value={rangeStats.high != null ? Math.round(rangeStats.high) : null}
             sub={rangeStats.highDate ? formatDateShort(rangeStats.highDate) : undefined}
-            color={rangeStats.high != null ? getFGTextColor(rangeStats.high) : '#9ca3af'}
+            color="#047857"
           />
           <StatItem
             label="Low"
             value={rangeStats.low != null ? Math.round(rangeStats.low) : null}
             sub={rangeStats.lowDate ? formatDateShort(rangeStats.lowDate) : undefined}
-            color={rangeStats.low != null ? getFGTextColor(rangeStats.low) : '#9ca3af'}
+            color="#b91c1c"
           />
         </div>
       )}
@@ -296,12 +304,48 @@ export default function FearGreedChart() {
       {hasData && (
         <div className="px-2 pb-4 pt-1">
           <ResponsiveContainer width="100%" height={220}>
-            <ComposedChart data={chartData} margin={{ top: 4, right: isMobile ? 8 : 54, bottom: 0, left: 0 }}>
+            <ComposedChart data={chartData} margin={{ top: 4, right: isMobile ? 8 : 52, bottom: 0, left: 0 }}>
 
-              {/* Coinglass-style background: green bottom (fear/opportunity),
-                  red top (greed/caution), clean white middle (neutral) */}
-              <ReferenceArea yAxisId="fg" y1={0}  y2={40}  fill="#10B981" fillOpacity={0.08} stroke="none" />
-              <ReferenceArea yAxisId="fg" y1={60} y2={100} fill="#EF4444" fillOpacity={0.08} stroke="none" />
+              {/*
+                Coinglass-style gradient: top of chart = Extreme Greed = muted red/pink,
+                bottom = Extreme Fear = desaturated green. Stops match zone boundaries
+                (score 100→75→55→45→25→0 maps to y 0%→25%→45%→55%→75%→100%).
+              */}
+              <defs>
+                <linearGradient id="fgLineGradient" x1="0" y1="0" x2="0" y2="1">
+                  {/* top=score100=Extreme Greed → bottom=score0=Extreme Fear */}
+                  {/* Duplicate stops at boundaries create Coinglass-style hard color edges */}
+                  <stop offset="0%"   stopColor="#F6465D" />  {/* Extreme Greed */}
+                  <stop offset="25%"  stopColor="#F6465D" />
+                  <stop offset="25%"  stopColor="#F4742B" />  {/* Greed */}
+                  <stop offset="45%"  stopColor="#F4742B" />
+                  <stop offset="45%"  stopColor="#F0B90B" />  {/* Neutral */}
+                  <stop offset="50%"  stopColor="#F0B90B" />
+                  <stop offset="50%"  stopColor="#84CC9A" />  {/* Fear */}
+                  <stop offset="75%"  stopColor="#84CC9A" />
+                  <stop offset="75%"  stopColor="#00C076" />  {/* Extreme Fear */}
+                  <stop offset="100%" stopColor="#00C076" />
+                </linearGradient>
+              </defs>
+
+              {/* Zone bands */}
+              {ZONES.map(z => (
+                <ReferenceArea
+                  key={z.label}
+                  yAxisId="fg"
+                  y1={z.y1} y2={z.y2}
+                  fill={z.fill}
+                  fillOpacity={1}
+                  label={isMobile ? undefined : {
+                    value: z.label,
+                    position: 'insideRight',
+                    fontSize: 9,
+                    fill: z.labelColor,
+                    opacity: 0.55,
+                    offset: 2,
+                  }}
+                />
+              ))}
 
               <CartesianGrid strokeDasharray="3 3" stroke="#f0ede8" vertical={false} />
 
@@ -312,15 +356,14 @@ export default function FearGreedChart() {
                 axisLine={false}
                 interval={xInterval}
               />
-
-              {/* FIX 3: full range for "All"; zoomed for 1W/1M/3M */}
               <YAxis
                 yAxisId="fg"
-                domain={[fgDomainMin, fgDomainMax]}
+                domain={[0, 100]}
                 tick={{ fontSize: 10, fill: '#9ca3af' }}
                 tickLine={false}
                 axisLine={false}
                 width={26}
+                ticks={[0, 25, 50, 75, 100]}
               />
               <YAxis
                 yAxisId="ihsg"
@@ -337,49 +380,65 @@ export default function FearGreedChart() {
 
               <Tooltip content={<CustomTooltip />} />
 
-              {/* IHSG — dark blue */}
+              {/* IHSG — muted warm gray, behind F&G */}
               <Line
                 yAxisId="ihsg"
                 type="monotone"
                 dataKey="ihsg"
-                stroke="#1E40AF"
-                strokeWidth={2}
+                stroke="#d1cdc7"
+                strokeWidth={1.5}
                 dot={false}
                 connectNulls
                 name="IHSG"
-                opacity={0.7}
-                activeDot={false}
+                opacity={0.8}
               />
 
-              {/* F&G — 5 zone Lines, connectNulls={true} so no gaps within a zone */}
-              {ZONE_LINES.map(z => (
-                <Line
-                  key={z.key}
-                  yAxisId="fg"
-                  type="monotone"
-                  dataKey={z.key}
-                  stroke={z.stroke}
-                  strokeWidth={2.5}
-                  dot={false}
-                  connectNulls
-                  activeDot={{ r: 4, fill: z.stroke, stroke: 'white', strokeWidth: 2 }}
-                />
-              ))}
+              {/* F&G — Coinglass-style segmented gradient line, semi-transparent */}
+              <Line
+                yAxisId="fg"
+                type="monotone"
+                dataKey="fgAll"
+                stroke="url(#fgLineGradient)"
+                strokeWidth={2.5}
+                dot={false}
+                connectNulls
+                name="Fear & Greed"
+                activeDot={{ r: 4, fill: '#6b7280', stroke: 'white', strokeWidth: 2 }}
+              />
 
             </ComposedChart>
           </ResponsiveContainer>
 
           {/* Legend */}
           <div className="flex flex-wrap items-center justify-between mt-2 px-3 gap-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs">
-              <span className="inline-block w-5 rounded" style={{ height: 2, backgroundColor: '#1E40AF', opacity: 0.7 }} />
-              <span style={{ color: '#1E40AF', opacity: 0.7 }}>IHSG</span>
+            <div className="flex items-center gap-4 text-xs">
+              <div className="flex items-center gap-1.5">
+                <svg width="20" height="3" style={{ overflow: 'visible', display: 'block' }}>
+                  <defs>
+                    <linearGradient id="legendFgGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%"   stopColor="#00C076" />
+                      <stop offset="50%"  stopColor="#F0B90B" />
+                      <stop offset="100%" stopColor="#F6465D" />
+                    </linearGradient>
+                  </defs>
+                  <line x1="0" y1="1.5" x2="20" y2="1.5" stroke="url(#legendFgGrad)" strokeWidth="2.5" />
+                </svg>
+                <span className="text-[#6b7280] font-medium">Fear &amp; Greed</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="inline-block w-5 border-t border-[#d1cdc7] rounded" />
+                <span className="text-[#9ca3af]">IHSG</span>
+              </div>
             </div>
-            <div className="hidden sm:flex items-center gap-3 text-[10px]">
-              {ZONE_LINES.map(z => (
-                <span key={z.key} className="flex items-center gap-1">
-                  <span className="inline-block w-4 rounded" style={{ height: 2.5, backgroundColor: z.stroke }} />
-                  <span style={{ color: z.stroke }}>{z.label}</span>
+
+            <div className="flex items-center gap-1.5 text-[10px]">
+              {ZONES.map(z => (
+                <span key={z.label} className="flex items-center gap-0.5" title={z.label}>
+                  <span
+                    className="inline-block w-2 h-2 rounded-sm"
+                    style={{ backgroundColor: z.fill, border: `1px solid ${z.labelColor}40` }}
+                  />
+                  <span style={{ color: z.labelColor + 'bb' }}>{z.label.split(' ')[0]}</span>
                 </span>
               ))}
             </div>

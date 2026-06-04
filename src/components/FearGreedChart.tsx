@@ -15,8 +15,6 @@ import type { FearGreedHistoryPoint } from '@/app/api/fear-greed-history/route';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type Range = '1w' | '1m' | '3m' | 'all';
-
 interface ChartPoint {
   rawDate:   string;
   dateLabel: string;
@@ -32,23 +30,13 @@ interface ApiResponse {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const RANGES: { key: Range; label: string }[] = [
-  { key: '1w',  label: '1W'  },
-  { key: '1m',  label: '1M'  },
-  { key: '3m',  label: '3M'  },
-  { key: 'all', label: 'All' },
-];
-
-// Single sophisticated teal accent — clean, high-end financial journalism look
-const FG_COLOR = '#0d9488';
-
-// Coinglass-style zone fills: faint green bottom (fear), faint red top (greed)
-const ZONES = [
-  { y1: 0,  y2: 25,  fill: '#ecfdf5', label: 'Ext. Fear',  labelColor: '#059669' },
-  { y1: 25, y2: 45,  fill: '#f7fef9', label: 'Fear',        labelColor: '#6ee7b7' },
-  { y1: 45, y2: 55,  fill: '#fafafa', label: 'Neutral',     labelColor: '#9ca3af' },
-  { y1: 55, y2: 75,  fill: '#fff8f1', label: 'Greed',       labelColor: '#fb923c' },
-  { y1: 75, y2: 100, fill: '#fff1f2', label: 'Ext. Greed',  labelColor: '#f87171' },
+// Legend zone entries — colors match gradient stops
+const LEGEND_ZONES = [
+  { label: 'Ext. Fear',  color: '#059669' },
+  { label: 'Fear',       color: '#10B981' },
+  { label: 'Neutral',    color: '#F59E0B' },
+  { label: 'Greed',      color: '#EF4444' },
+  { label: 'Ext. Greed', color: '#DC2626' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -151,7 +139,6 @@ function StatItem({
 
 export default function FearGreedChart() {
   const [allPoints, setAllPoints] = useState<FearGreedHistoryPoint[]>([]);
-  const [range,     setRange]     = useState<Range>('3m');
   const [loading,   setLoading]   = useState(true);
   const [error,     setError]     = useState<string | null>(null);
   const [isMobile,  setIsMobile]  = useState(false);
@@ -173,19 +160,10 @@ export default function FearGreedChart() {
       .catch(() => { setError('Gagal memuat data historis'); setLoading(false); });
   }, []);
 
-  const filteredPoints = useMemo<FearGreedHistoryPoint[]>(() => {
-    if (range === 'all') return allPoints;
-    const days = range === '1w' ? 7 : range === '1m' ? 30 : 90;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - days);
-    cutoff.setHours(0, 0, 0, 0);
-    return allPoints.filter(p => new Date(p.date + 'T00:00:00') >= cutoff);
-  }, [allPoints, range]);
-
   const rangeStats = useMemo(() => {
     let high = -Infinity, highDate = '';
     let low  =  Infinity, lowDate  = '';
-    for (const p of filteredPoints) {
+    for (const p of allPoints) {
       const v = p.fgSmoothed;
       if (v == null) continue;
       if (v > high) { high = v; highDate = p.date; }
@@ -197,24 +175,24 @@ export default function FearGreedChart() {
       low:      low  ===  Infinity ? null : low,
       lowDate:  lowDate  || null,
     };
-  }, [filteredPoints]);
+  }, [allPoints]);
 
-  // Single unified series — no backfill/live split
+  // Single unified series — full dataset, no time filtering
   const chartData = useMemo<ChartPoint[]>(() => {
-    return filteredPoints.map(p => ({
+    return allPoints.map(p => ({
       rawDate:   p.date,
       dateLabel: formatDateLabel(p.date),
       fgAll:     p.fgSmoothed,
       ihsg:      p.ihsgClose,
       label:     p.label,
     }));
-  }, [filteredPoints]);
+  }, [allPoints]);
 
   const currentPoint = useMemo(() => {
-    const live = filteredPoints.filter(p => !p.isBackfilled);
+    const live = allPoints.filter(p => !p.isBackfilled);
     if (live.length) return live[live.length - 1];
-    return filteredPoints.length ? filteredPoints[filteredPoints.length - 1] : null;
-  }, [filteredPoints]);
+    return allPoints.length ? allPoints[allPoints.length - 1] : null;
+  }, [allPoints]);
 
   const currentFg    = currentPoint?.fgSmoothed ?? null;
   const currentColor = currentFg != null ? fgColor(currentFg) : '#9ca3af';
@@ -233,29 +211,11 @@ export default function FearGreedChart() {
     <div className="bg-white border border-[#e5e2db] rounded-2xl overflow-hidden">
 
       {/* ── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between px-5 pt-4 pb-3 gap-3 flex-wrap">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
-            Sentimen vs Pasar
-          </p>
-          <h2 className="text-sm font-bold text-[#0f172a]">Fear &amp; Greed vs IHSG</h2>
-        </div>
-
-        <div className="flex items-center gap-0.5 bg-[#f8f7f4] border border-[#e5e2db] rounded-lg p-0.5">
-          {RANGES.map(r => (
-            <button
-              key={r.key}
-              onClick={() => setRange(r.key)}
-              className={`px-3 py-1 text-xs font-semibold rounded-md transition-all ${
-                range === r.key
-                  ? 'bg-white text-[#0f172a] shadow-sm border border-[#e5e2db]'
-                  : 'text-[#9ca3af] hover:text-[#374151]'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+      <div className="px-5 pt-4 pb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af] mb-0.5">
+          Sentimen vs Pasar
+        </p>
+        <h2 className="text-sm font-bold text-[#0f172a]">Fear &amp; Greed vs IHSG</h2>
       </div>
 
       {/* ── Stats strip ───────────────────────────────────────────────────── */}
@@ -328,24 +288,9 @@ export default function FearGreedChart() {
                 </linearGradient>
               </defs>
 
-              {/* Zone bands */}
-              {ZONES.map(z => (
-                <ReferenceArea
-                  key={z.label}
-                  yAxisId="fg"
-                  y1={z.y1} y2={z.y2}
-                  fill={z.fill}
-                  fillOpacity={1}
-                  label={isMobile ? undefined : {
-                    value: z.label,
-                    position: 'insideRight',
-                    fontSize: 9,
-                    fill: z.labelColor,
-                    opacity: 0.55,
-                    offset: 2,
-                  }}
-                />
-              ))}
+              {/* Background: green tint = fear/opportunity, red tint = greed/caution */}
+              <ReferenceArea yAxisId="fg" y1={0}  y2={40}  fill="#10B981" fillOpacity={0.07} stroke="none" />
+              <ReferenceArea yAxisId="fg" y1={60} y2={100} fill="#EF4444" fillOpacity={0.07} stroke="none" />
 
               <CartesianGrid strokeDasharray="3 3" stroke="#f0ede8" vertical={false} />
 
@@ -380,13 +325,13 @@ export default function FearGreedChart() {
 
               <Tooltip content={<CustomTooltip />} />
 
-              {/* IHSG — muted warm gray, behind F&G */}
+              {/* IHSG — blue, behind F&G */}
               <Line
                 yAxisId="ihsg"
                 type="monotone"
                 dataKey="ihsg"
-                stroke="#d1cdc7"
-                strokeWidth={1.5}
+                stroke="#3B82F6"
+                strokeWidth={2}
                 dot={false}
                 connectNulls
                 name="IHSG"
@@ -410,38 +355,17 @@ export default function FearGreedChart() {
           </ResponsiveContainer>
 
           {/* Legend */}
-          <div className="flex flex-wrap items-center justify-between mt-2 px-3 gap-y-1.5">
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <svg width="20" height="3" style={{ overflow: 'visible', display: 'block' }}>
-                  <defs>
-                    <linearGradient id="legendFgGrad" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="0%"   stopColor="#00C076" />
-                      <stop offset="50%"  stopColor="#F0B90B" />
-                      <stop offset="100%" stopColor="#F6465D" />
-                    </linearGradient>
-                  </defs>
-                  <line x1="0" y1="1.5" x2="20" y2="1.5" stroke="url(#legendFgGrad)" strokeWidth="2.5" />
-                </svg>
-                <span className="text-[#6b7280] font-medium">Fear &amp; Greed</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block w-5 border-t border-[#d1cdc7] rounded" />
-                <span className="text-[#9ca3af]">IHSG</span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-1.5 text-[10px]">
-              {ZONES.map(z => (
-                <span key={z.label} className="flex items-center gap-0.5" title={z.label}>
-                  <span
-                    className="inline-block w-2 h-2 rounded-sm"
-                    style={{ backgroundColor: z.fill, border: `1px solid ${z.labelColor}40` }}
-                  />
-                  <span style={{ color: z.labelColor + 'bb' }}>{z.label.split(' ')[0]}</span>
-                </span>
-              ))}
-            </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 px-3 text-[10px]">
+            {LEGEND_ZONES.map(z => (
+              <span key={z.label} className="flex items-center gap-1">
+                <span className="inline-block w-4 rounded" style={{ height: 2.5, backgroundColor: z.color }} />
+                <span style={{ color: z.color }}>{z.label}</span>
+              </span>
+            ))}
+            <span className="flex items-center gap-1">
+              <span className="inline-block w-4 rounded" style={{ height: 2, backgroundColor: '#3B82F6', opacity: 0.8 }} />
+              <span style={{ color: '#3B82F6' }}>IHSG</span>
+            </span>
           </div>
         </div>
       )}

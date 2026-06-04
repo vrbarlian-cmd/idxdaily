@@ -44,13 +44,17 @@ const LINE_ZONES = [
   { threshold: [75, 100],color: '#DC2626', label: 'Ext. Greed' },
 ] as const;
 
-// Background zones (2 only) — fear zone green, greed zone red, no neutral bg
-const BG_ZONES = [
-  { y1: 0,  y2: 40,  fill: '#10B981', opacity: 0.06, label: 'Fear / Peluang' },
-  { y1: 60, y2: 100, fill: '#EF4444', opacity: 0.06, label: 'Greed / Waspada' },
-] as const;
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+type ZoneName = 'ef' | 'fear' | 'neutral' | 'greed' | 'eg';
+
+function getZone(score: number): ZoneName {
+  if (score < 25) return 'ef';
+  if (score < 40) return 'fear';
+  if (score < 60) return 'neutral';
+  if (score < 75) return 'greed';
+  return 'eg';
+}
 
 // Line color: contrarian (Fear=green=opportunity, Greed=red=caution)
 // Must match the Line stroke colors exactly
@@ -197,26 +201,51 @@ export default function FearGreedChart() {
     };
   }, [allPoints]);
 
-  // Build chart data — one array, zone keys merged in. Every point in exactly ONE zone.
-  // Carry-forward IHSG for holidays. ComposedChart uses this as its sole data prop.
+  // Build chart data — zone keys merged in, bridge points inserted at zone transitions
+  // to eliminate visual gaps. IHSG carried forward for holidays.
   const chartData = useMemo<ChartPoint[]>(() => {
     let lastIhsg: number | null = null;
-    return allPoints.map(p => {
+    const result: ChartPoint[] = [];
+
+    for (let i = 0; i < allPoints.length; i++) {
+      const p    = allPoints[i];
+      const next = allPoints[i + 1];
       if (p.ihsgClose !== null) lastIhsg = p.ihsgClose;
-      const s = p.fgSmoothed;
-      return {
+      const s    = p.fgSmoothed;
+      const ihsg = p.ihsgClose !== null ? p.ihsgClose : lastIhsg;
+
+      const pt: ChartPoint = {
         rawDate:    p.date,
         dateLabel:  formatDateLabel(p.date),
         fgAll:      s,
-        fg_ef:      s !== null && s < 25               ? s : null,
-        fg_fear:    s !== null && s >= 25 && s < 40    ? s : null,
-        fg_neutral: s !== null && s >= 40 && s < 60    ? s : null,
-        fg_greed:   s !== null && s >= 60 && s < 75    ? s : null,
-        fg_eg:      s !== null && s >= 75               ? s : null,
-        ihsg:       p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
-        label:      p.label,
+        fg_ef:      s !== null && s < 25              ? s : null,
+        fg_fear:    s !== null && s >= 25 && s < 40   ? s : null,
+        fg_neutral: s !== null && s >= 40 && s < 60   ? s : null,
+        fg_greed:   s !== null && s >= 60 && s < 75   ? s : null,
+        fg_eg:      s !== null && s >= 75              ? s : null,
+        ihsg,
+        label: p.label,
       };
-    });
+      result.push(pt);
+
+      // Bridge point at zone transitions: duplicate current point into next zone
+      // so adjacent zone Lines share an endpoint → no 1-day visual gap
+      if (next && s !== null && next.fgSmoothed !== null) {
+        const currZone = getZone(s);
+        const nextZone = getZone(next.fgSmoothed);
+        if (currZone !== nextZone) {
+          result.push({
+            ...pt,
+            fg_ef:      nextZone === 'ef'      ? s : null,
+            fg_fear:    nextZone === 'fear'     ? s : null,
+            fg_neutral: nextZone === 'neutral'  ? s : null,
+            fg_greed:   nextZone === 'greed'    ? s : null,
+            fg_eg:      nextZone === 'eg'       ? s : null,
+          });
+        }
+      }
+    }
+    return result;
   }, [allPoints]);
 
   const currentPoint = useMemo(() => {
@@ -248,8 +277,6 @@ export default function FearGreedChart() {
   const visibleLineZones = LINE_ZONES.filter(
     z => z.threshold[1] > fgDomainMin && z.threshold[0] < fgDomainMax
   );
-  // Background zones clipped to visible domain
-  const visibleBgZones = BG_ZONES.filter(z => z.y2 > fgDomainMin && z.y1 < fgDomainMax);
 
   const hasData = !loading && !error && chartData.length > 0;
 
@@ -312,24 +339,10 @@ export default function FearGreedChart() {
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={chartData} margin={{ top: 4, right: isMobile ? 8 : 54, bottom: 0, left: 0 }}>
 
-              {/* FIX 2: only 2 background tints — fear (green) and greed (red) */}
-              {visibleBgZones.map(z => (
-                <ReferenceArea
-                  key={z.label}
-                  yAxisId="fg"
-                  y1={z.y1} y2={z.y2}
-                  fill={z.fill}
-                  fillOpacity={z.opacity}
-                  label={isMobile ? undefined : {
-                    value: z.label,
-                    position: 'insideRight',
-                    fontSize: 9,
-                    fill: z.fill,
-                    opacity: 0.55,
-                    offset: 2,
-                  }}
-                />
-              ))}
+              {/* Coinglass-style background: green bottom (fear/opportunity),
+                  red top (greed/caution), clean white middle (neutral) */}
+              <ReferenceArea yAxisId="fg" y1={0}  y2={40}  fill="#10B981" fillOpacity={0.08} stroke="none" />
+              <ReferenceArea yAxisId="fg" y1={60} y2={100} fill="#EF4444" fillOpacity={0.08} stroke="none" />
 
               <CartesianGrid strokeDasharray="3 3" stroke="#f0ede8" vertical={false} />
 

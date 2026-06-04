@@ -10,18 +10,22 @@ import {
   Tooltip,
   ReferenceArea,
   ResponsiveContainer,
-  Customized,
 } from 'recharts';
 import type { FearGreedHistoryPoint } from '@/app/api/fear-greed-history/route';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ChartPoint {
-  rawDate:   string;
-  dateLabel: string;
-  fgAll:     number | null;
-  ihsg:      number | null;
-  label:     string;
+  rawDate:    string;
+  dateLabel:  string;
+  fgAll:      number | null;
+  fg_ef:      number | null;   // Extreme Fear  (score < 25)
+  fg_fear:    number | null;   // Fear          (25–40)
+  fg_neutral: number | null;   // Neutral       (40–60)
+  fg_greed:   number | null;   // Greed         (60–75)
+  fg_eg:      number | null;   // Extreme Greed (75+)
+  ihsg:       number | null;
+  label:      string;
 }
 
 interface ApiResponse {
@@ -136,55 +140,14 @@ function StatItem({
   );
 }
 
-// ── Colored F&G line overlay ──────────────────────────────────────────────────
-// Draws colored SVG <line> segments using Recharts' injected scale functions.
-// Customized component receives: xAxisMap, yAxisMap (with .scale()), data array.
-// This is the reliable approach — no dependency on formattedGraphicalItems.
-
-type ScaleFn = { (v: string): number; bandwidth?: () => number };
-type AxisEntry = { scale: ScaleFn; orientation?: string };
-
-function FGColoredLine(props: Record<string, unknown>) {
-  const xAxisMap = props.xAxisMap as Record<string | number, AxisEntry> | undefined;
-  const yAxisMap = props.yAxisMap as Record<string, AxisEntry>          | undefined;
-  const data     = props.data     as ChartPoint[]                        | undefined;
-
-  if (!xAxisMap || !yAxisMap || !data || data.length < 2) return null;
-
-  const xAxis = Object.values(xAxisMap)[0];
-  const yAxis = yAxisMap['fg'];          // matches <YAxis yAxisId="fg">
-  if (!xAxis?.scale || !yAxis?.scale) return null;
-
-  const bw = xAxis.scale.bandwidth?.() ?? 0;
-  const segs: React.ReactElement[] = [];
-
-  for (let i = 0; i < data.length - 1; i++) {
-    const curr = data[i];
-    const next = data[i + 1];
-    if (curr.fgAll == null || next.fgAll == null) continue;
-
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const x1 = (xAxis.scale as any)(curr.dateLabel) + bw / 2;
-    const y1 = (yAxis.scale as any)(curr.fgAll);
-    const x2 = (xAxis.scale as any)(next.dateLabel) + bw / 2;
-    const y2 = (yAxis.scale as any)(next.fgAll);
-    /* eslint-enable @typescript-eslint/no-explicit-any */
-
-    if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) continue;
-
-    segs.push(
-      <line
-        key={i}
-        x1={x1} y1={y1} x2={x2} y2={y2}
-        stroke={fgColor(curr.fgAll)}
-        strokeWidth={2.5}
-        strokeLinecap="round"
-      />
-    );
-  }
-
-  return <g>{segs}</g>;
-}
+// Zone Lines config — color matches legend and line strokes
+const ZONE_LINES = [
+  { key: 'fg_ef'     as const, stroke: '#059669', label: 'Ext. Fear'  },
+  { key: 'fg_fear'   as const, stroke: '#10B981', label: 'Fear'       },
+  { key: 'fg_neutral'as const, stroke: '#F59E0B', label: 'Neutral'    },
+  { key: 'fg_greed'  as const, stroke: '#EF4444', label: 'Greed'      },
+  { key: 'fg_eg'     as const, stroke: '#DC2626', label: 'Ext. Greed' },
+] as const;
 
 // ── Main Component ────────────────────────────────────────────────────────────
 
@@ -228,18 +191,23 @@ export default function FearGreedChart() {
     };
   }, [allPoints]);
 
-  // Build chart data — simple map, IHSG carry-forward for holidays only.
-  // Zone coloring is handled entirely by ColoredFGLine overlay, not data keys.
+  // Build chart data — zone keys merged in, IHSG carry-forward for holidays.
   const chartData = useMemo<ChartPoint[]>(() => {
     let lastIhsg: number | null = null;
     return allPoints.map(p => {
       if (p.ihsgClose !== null) lastIhsg = p.ihsgClose;
+      const s = p.fgSmoothed;
       return {
-        rawDate:   p.date,
-        dateLabel: formatDateLabel(p.date),
-        fgAll:     p.fgSmoothed,
-        ihsg:      p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
-        label:     p.label,
+        rawDate:    p.date,
+        dateLabel:  formatDateLabel(p.date),
+        fgAll:      s,
+        fg_ef:      s !== null && s < 25              ? s : null,
+        fg_fear:    s !== null && s >= 25 && s < 40   ? s : null,
+        fg_neutral: s !== null && s >= 40 && s < 60   ? s : null,
+        fg_greed:   s !== null && s >= 60 && s < 75   ? s : null,
+        fg_eg:      s !== null && s >= 75              ? s : null,
+        ihsg:       p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
+        label:      p.label,
       };
     });
   }, [allPoints]);
@@ -383,23 +351,37 @@ export default function FearGreedChart() {
                 activeDot={false}
               />
 
-              {/* F&G — Customized draws one SVG <line> per point pair using
-                  xAxisMap/yAxisMap scale functions. Tooltip still works because
-                  IHSG payload[0].payload contains the full ChartPoint incl fgAll. */}
-              <Customized component={FGColoredLine} />
+              {/* F&G — 5 zone Lines, connectNulls={true} so no gaps within a zone */}
+              {ZONE_LINES.map(z => (
+                <Line
+                  key={z.key}
+                  yAxisId="fg"
+                  type="monotone"
+                  dataKey={z.key}
+                  stroke={z.stroke}
+                  strokeWidth={2.5}
+                  dot={false}
+                  connectNulls
+                  activeDot={{ r: 4, fill: z.stroke, stroke: 'white', strokeWidth: 2 }}
+                />
+              ))}
 
             </ComposedChart>
           </ResponsiveContainer>
 
           {/* Legend */}
-          <div className="flex items-center gap-4 mt-2 px-3 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-block w-5 rounded" style={{ height: 2.5, backgroundColor: currentColor }} />
-              <span className="font-medium" style={{ color: currentColor }}>Fear &amp; Greed</span>
-            </div>
-            <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center justify-between mt-2 px-3 gap-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs">
               <span className="inline-block w-5 rounded" style={{ height: 2, backgroundColor: '#1E40AF', opacity: 0.7 }} />
               <span style={{ color: '#1E40AF', opacity: 0.7 }}>IHSG</span>
+            </div>
+            <div className="hidden sm:flex items-center gap-3 text-[10px]">
+              {ZONE_LINES.map(z => (
+                <span key={z.key} className="flex items-center gap-1">
+                  <span className="inline-block w-4 rounded" style={{ height: 2.5, backgroundColor: z.stroke }} />
+                  <span style={{ color: z.stroke }}>{z.label}</span>
+                </span>
+              ))}
             </div>
           </div>
         </div>

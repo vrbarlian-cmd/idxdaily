@@ -10,22 +10,18 @@ import {
   Tooltip,
   ReferenceArea,
   ResponsiveContainer,
+  Customized,
 } from 'recharts';
 import type { FearGreedHistoryPoint } from '@/app/api/fear-greed-history/route';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface ChartPoint {
-  rawDate:    string;
-  dateLabel:  string;
-  fgAll:      number | null;
-  fg_ef:      number | null;   // Extreme Fear  (score < 25)
-  fg_fear:    number | null;   // Fear          (25 ≤ score < 40)
-  fg_neutral: number | null;   // Neutral       (40 ≤ score < 60)
-  fg_greed:   number | null;   // Greed         (60 ≤ score < 75)
-  fg_eg:      number | null;   // Extreme Greed (score ≥ 75)
-  ihsg:       number | null;
-  label:      string;
+  rawDate:   string;
+  dateLabel: string;
+  fgAll:     number | null;
+  ihsg:      number | null;
+  label:     string;
 }
 
 interface ApiResponse {
@@ -45,16 +41,6 @@ const LINE_ZONES = [
 ] as const;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-type ZoneName = 'ef' | 'fear' | 'neutral' | 'greed' | 'eg';
-
-function getZone(score: number): ZoneName {
-  if (score < 25) return 'ef';
-  if (score < 40) return 'fear';
-  if (score < 60) return 'neutral';
-  if (score < 75) return 'greed';
-  return 'eg';
-}
 
 // Line color: contrarian (Fear=green=opportunity, Greed=red=caution)
 // Must match the Line stroke colors exactly
@@ -159,6 +145,56 @@ function StatItem({
   );
 }
 
+// ── Colored F&G line overlay ──────────────────────────────────────────────────
+// Draws one SVG <line> segment per consecutive point pair, colored by zone.
+// Uses Recharts' Customized component which injects formattedGraphicalItems —
+// each item carries the pre-computed pixel coordinates for a Line's data.
+// One continuous segment array = zero gaps, zero zone-split complexity.
+
+type RechartsPoint = {
+  x: number;
+  y: number;
+  value?: number;
+  payload?: ChartPoint;
+};
+
+type GraphicalItem = {
+  props?: {
+    dataKey?: string;
+    points?: RechartsPoint[];
+  };
+};
+
+function ColoredFGLine(props: Record<string, unknown>) {
+  const items = (props.formattedGraphicalItems as GraphicalItem[] | undefined) ?? [];
+  const fgItem = items.find(it => it.props?.dataKey === 'fgAll');
+  const points = fgItem?.props?.points;
+
+  if (!points || points.length < 2) return null;
+
+  return (
+    <g>
+      {points.slice(0, -1).map((p1, i) => {
+        const p2 = points[i + 1];
+        // skip if either endpoint is missing (null fgAll → y undefined in Recharts)
+        if (p1.y == null || p2.y == null || isNaN(p1.y) || isNaN(p2.y)) return null;
+        const score = p1.payload?.fgAll ?? p1.value ?? null;
+        if (score == null) return null;
+        return (
+          <line
+            key={i}
+            x1={p1.x} y1={p1.y}
+            x2={p2.x} y2={p2.y}
+            stroke={fgColor(score)}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+          />
+        );
+      })}
+    </g>
+  );
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 
 export default function FearGreedChart() {
@@ -201,51 +237,20 @@ export default function FearGreedChart() {
     };
   }, [allPoints]);
 
-  // Build chart data — zone keys merged in, bridge points inserted at zone transitions
-  // to eliminate visual gaps. IHSG carried forward for holidays.
+  // Build chart data — simple map, IHSG carry-forward for holidays only.
+  // Zone coloring is handled entirely by ColoredFGLine overlay, not data keys.
   const chartData = useMemo<ChartPoint[]>(() => {
     let lastIhsg: number | null = null;
-    const result: ChartPoint[] = [];
-
-    for (let i = 0; i < allPoints.length; i++) {
-      const p    = allPoints[i];
-      const next = allPoints[i + 1];
+    return allPoints.map(p => {
       if (p.ihsgClose !== null) lastIhsg = p.ihsgClose;
-      const s    = p.fgSmoothed;
-      const ihsg = p.ihsgClose !== null ? p.ihsgClose : lastIhsg;
-
-      const pt: ChartPoint = {
-        rawDate:    p.date,
-        dateLabel:  formatDateLabel(p.date),
-        fgAll:      s,
-        fg_ef:      s !== null && s < 25              ? s : null,
-        fg_fear:    s !== null && s >= 25 && s < 40   ? s : null,
-        fg_neutral: s !== null && s >= 40 && s < 60   ? s : null,
-        fg_greed:   s !== null && s >= 60 && s < 75   ? s : null,
-        fg_eg:      s !== null && s >= 75              ? s : null,
-        ihsg,
-        label: p.label,
+      return {
+        rawDate:   p.date,
+        dateLabel: formatDateLabel(p.date),
+        fgAll:     p.fgSmoothed,
+        ihsg:      p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
+        label:     p.label,
       };
-      result.push(pt);
-
-      // Bridge point at zone transitions: duplicate current point into next zone
-      // so adjacent zone Lines share an endpoint → no 1-day visual gap
-      if (next && s !== null && next.fgSmoothed !== null) {
-        const currZone = getZone(s);
-        const nextZone = getZone(next.fgSmoothed);
-        if (currZone !== nextZone) {
-          result.push({
-            ...pt,
-            fg_ef:      nextZone === 'ef'      ? s : null,
-            fg_fear:    nextZone === 'fear'     ? s : null,
-            fg_neutral: nextZone === 'neutral'  ? s : null,
-            fg_greed:   nextZone === 'greed'    ? s : null,
-            fg_eg:      nextZone === 'eg'       ? s : null,
-          });
-        }
-      }
-    }
-    return result;
+    });
   }, [allPoints]);
 
   const currentPoint = useMemo(() => {
@@ -392,23 +397,20 @@ export default function FearGreedChart() {
                 activeDot={false}
               />
 
-              {/* F&G — 5 zone Lines on shared chartData. Every point is in exactly
-                  ONE zone key (others null) → no backbone, no gray bleed. */}
-              <Line yAxisId="fg" type="monotone" dataKey="fg_ef"
-                stroke="#059669" strokeWidth={2.5} dot={false} connectNulls={false}
-                activeDot={{ r: 4, fill: '#059669', stroke: 'white', strokeWidth: 2 }} />
-              <Line yAxisId="fg" type="monotone" dataKey="fg_fear"
-                stroke="#10B981" strokeWidth={2.5} dot={false} connectNulls={false}
-                activeDot={{ r: 4, fill: '#10B981', stroke: 'white', strokeWidth: 2 }} />
-              <Line yAxisId="fg" type="monotone" dataKey="fg_neutral"
-                stroke="#F59E0B" strokeWidth={2.5} dot={false} connectNulls={false}
-                activeDot={{ r: 4, fill: '#F59E0B', stroke: 'white', strokeWidth: 2 }} />
-              <Line yAxisId="fg" type="monotone" dataKey="fg_greed"
-                stroke="#EF4444" strokeWidth={2.5} dot={false} connectNulls={false}
-                activeDot={{ r: 4, fill: '#EF4444', stroke: 'white', strokeWidth: 2 }} />
-              <Line yAxisId="fg" type="monotone" dataKey="fg_eg"
-                stroke="#DC2626" strokeWidth={2.5} dot={false} connectNulls={false}
-                activeDot={{ r: 4, fill: '#DC2626', stroke: 'white', strokeWidth: 2 }} />
+              {/* F&G — transparent Line establishes pixel coordinates for Recharts,
+                  ColoredFGLine overlay draws the actual colored SVG segments.
+                  One continuous path = zero gaps, no zone-split complexity. */}
+              <Line
+                yAxisId="fg"
+                type="monotone"
+                dataKey="fgAll"
+                stroke="transparent"
+                strokeWidth={0}
+                dot={false}
+                connectNulls
+                activeDot={false}
+              />
+              <Customized component={ColoredFGLine} />
 
             </ComposedChart>
           </ResponsiveContainer>

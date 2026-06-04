@@ -57,6 +57,7 @@ export async function GET() {
         { category: 'MACRO',      impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
         { category: 'REGULATORY', impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
         { category: 'SECTOR',     impactScore: { gte: 7.0 }, source: { notIn: GLOBAL_SOURCES } },
+        { category: 'FINANCIAL',  impactScore: { gte: 4.5 }, tickerId: null, aiSummary: { not: null } },
         { source: { in: GLOBAL_SOURCES }, aiSummary: { not: null }, impactScore: { gte: 4.5 } },
       ],
     },

@@ -34,9 +34,13 @@ export default async function TrendingTickers({ currentTicker }: { currentTicker
 
   // Use tickerMention table (same as ticker page) — high+medium confidence only
   const mentions = await prisma.tickerMention.findMany({
+    take: 2000,
     where: {
       matchConfidence: { in: ['high', 'medium'] },
       article: { publishedAt: { gte: cutoff7d } },
+    },
+    orderBy: {
+      article: { publishedAt: 'desc' },
     },
     select: {
       tickerId:  true,

@@ -44,25 +44,39 @@ const RANGES: { key: Range; label: string }[] = [
   { key: 'all', label: 'All' },
 ];
 
-// Coinglass-style zone config: Fear=green (opportunity), Greed=red (caution)
-const ZONES = [
-  { min: 0,  max: 25,  key: 'fg_ef',    color: '#10B981', fill: '#10B981', opacity: 0.08, label: 'Ext. Fear'  },
-  { min: 25, max: 40,  key: 'fg_fear',  color: '#34D399', fill: '#34D399', opacity: 0.07, label: 'Fear'       },
-  { min: 40, max: 60,  key: 'fg_neut',  color: '#F59E0B', fill: '#F59E0B', opacity: 0.05, label: 'Neutral'    },
-  { min: 60, max: 75,  key: 'fg_greed', color: '#F97316', fill: '#F97316', opacity: 0.08, label: 'Greed'      },
-  { min: 75, max: 100, key: 'fg_xg',    color: '#EF4444', fill: '#EF4444', opacity: 0.10, label: 'Ext. Greed' },
+// Line segment zones (5) — color by contrarian logic: Fear=green, Greed=red
+const LINE_ZONES = [
+  { min: 0,  max: 26,  key: 'fg_ef',    color: '#059669', label: 'Ext. Fear'  },
+  { min: 25, max: 41,  key: 'fg_fear',  color: '#34D399', label: 'Fear'       },
+  { min: 40, max: 61,  key: 'fg_neut',  color: '#F59E0B', label: 'Neutral'    },
+  { min: 60, max: 76,  key: 'fg_greed', color: '#F97316', label: 'Greed'      },
+  { min: 75, max: 101, key: 'fg_xg',    color: '#DC2626', label: 'Ext. Greed' },
 ] as const;
 
-type ZoneKey = typeof ZONES[number]['key'];
+// Background zones (2 only) — fear zone green, greed zone red, no neutral bg
+const BG_ZONES = [
+  { y1: 0,  y2: 40,  fill: '#10B981', opacity: 0.06, label: 'Fear / Peluang' },
+  { y1: 60, y2: 100, fill: '#EF4444', opacity: 0.06, label: 'Greed / Waspada' },
+] as const;
+
+type ZoneKey = typeof LINE_ZONES[number]['key'];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+// Line color: contrarian (Fear=green=opportunity, Greed=red=caution)
 function fgColor(score: number): string {
-  if (score <= 25) return '#10B981';
-  if (score <= 40) return '#34D399';
-  if (score <= 60) return '#F59E0B';
-  if (score <= 75) return '#F97316';
-  return '#EF4444';
+  if (score <= 25) return '#059669';  // Extreme Fear  — dark green
+  if (score <= 40) return '#34D399';  // Fear          — light green
+  if (score <= 60) return '#F59E0B';  // Neutral       — yellow
+  if (score <= 75) return '#F97316';  // Greed         — orange
+  return '#DC2626';                    // Extreme Greed — dark red
+}
+
+// Stats text color: intuitive (Fear=red=bad, Greed=green=good)
+function getFGTextColor(score: number): string {
+  if (score <= 40) return '#EF4444';  // Fear zones — red text
+  if (score <= 60) return '#F59E0B';  // Neutral    — yellow text
+  return '#10B981';                    // Greed zones — green text
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -74,12 +88,6 @@ function formatDateShort(dateStr: string | null): string {
   if (!dateStr) return '—';
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
-}
-
-/** Assign a score value to a zone segment key — null if out of zone. */
-function zoneValue(score: number | null, min: number, max: number): number | null {
-  if (score === null) return null;
-  return score >= min && score < max ? score : null;
 }
 
 // ── Custom Tooltip ────────────────────────────────────────────────────────────
@@ -219,11 +227,11 @@ export default function FearGreedChart() {
         rawDate:   p.date,
         dateLabel: formatDateLabel(p.date),
         fgAll:     s,
-        fg_ef:     zoneValue(s, 0,  25),
-        fg_fear:   zoneValue(s, 25, 40),
-        fg_neut:   zoneValue(s, 40, 60),
-        fg_greed:  zoneValue(s, 60, 75),
-        fg_xg:     zoneValue(s, 75, 101),  // 101 to include 100
+        fg_ef:     s !== null && s <= 25             ? s : null,
+        fg_fear:   s !== null && s > 25 && s <= 40   ? s : null,
+        fg_neut:   s !== null && s > 40 && s <= 60   ? s : null,
+        fg_greed:  s !== null && s > 60 && s <= 75   ? s : null,
+        fg_xg:     s !== null && s > 75              ? s : null,
         ihsg:      p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
         label:     p.label,
       };
@@ -257,8 +265,10 @@ export default function FearGreedChart() {
                   : chartData.length > 30 ? Math.floor(chartData.length / 8)
                   : 'preserveStartEnd';
 
-  // FIX 4: only show zone labels that are within the visible domain
-  const visibleZones = ZONES.filter(z => z.max > fgDomainMin && z.min < fgDomainMax);
+  // Visible line zones for legend (within current domain)
+  const visibleLineZones = LINE_ZONES.filter(z => z.max > fgDomainMin && z.min < fgDomainMax);
+  // Background zones clipped to visible domain
+  const visibleBgZones = BG_ZONES.filter(z => z.y2 > fgDomainMin && z.y1 < fgDomainMax);
 
   const hasData = !loading && !error && chartData.length > 0;
 
@@ -298,19 +308,19 @@ export default function FearGreedChart() {
             label="Now"
             value={currentFg != null ? Math.round(currentFg) : null}
             sub={currentPoint?.label}
-            color={currentColor}
+            color={currentFg != null ? getFGTextColor(currentFg) : '#9ca3af'}
           />
           <StatItem
             label="High"
             value={rangeStats.high != null ? Math.round(rangeStats.high) : null}
             sub={rangeStats.highDate ? formatDateShort(rangeStats.highDate) : undefined}
-            color="#047857"
+            color={rangeStats.high != null ? getFGTextColor(rangeStats.high) : '#9ca3af'}
           />
           <StatItem
             label="Low"
             value={rangeStats.low != null ? Math.round(rangeStats.low) : null}
             sub={rangeStats.lowDate ? formatDateShort(rangeStats.lowDate) : undefined}
-            color="#b91c1c"
+            color={rangeStats.low != null ? getFGTextColor(rangeStats.low) : '#9ca3af'}
           />
         </div>
       )}
@@ -339,20 +349,20 @@ export default function FearGreedChart() {
           <ResponsiveContainer width="100%" height={220}>
             <ComposedChart data={chartData} margin={{ top: 4, right: isMobile ? 8 : 54, bottom: 0, left: 0 }}>
 
-              {/* FIX 2: subtle zone background tints — always visible */}
-              {visibleZones.map(z => (
+              {/* FIX 2: only 2 background tints — fear (green) and greed (red) */}
+              {visibleBgZones.map(z => (
                 <ReferenceArea
-                  key={z.key}
+                  key={z.label}
                   yAxisId="fg"
-                  y1={z.min} y2={z.max}
+                  y1={z.y1} y2={z.y2}
                   fill={z.fill}
                   fillOpacity={z.opacity}
                   label={isMobile ? undefined : {
                     value: z.label,
                     position: 'insideRight',
                     fontSize: 9,
-                    fill: z.color,
-                    opacity: 0.65,
+                    fill: z.fill,
+                    opacity: 0.55,
                     offset: 2,
                   }}
                 />
@@ -419,14 +429,14 @@ export default function FearGreedChart() {
               />
 
               {/* FIX 1: zone-colored segments on top of backbone */}
-              {ZONES.map(z => (
+              {LINE_ZONES.map(z => (
                 <Line
                   key={z.key}
                   yAxisId="fg"
                   type="monotone"
                   dataKey={z.key as ZoneKey}
                   stroke={z.color}
-                  strokeWidth={2.5}
+                  strokeWidth={2}
                   dot={false}
                   connectNulls={false}
                   activeDot={{ r: 4, fill: z.color, stroke: 'white', strokeWidth: 2 }}
@@ -455,11 +465,11 @@ export default function FearGreedChart() {
             </div>
 
             <div className="hidden sm:flex items-center gap-2 text-[10px]">
-              {visibleZones.map(z => (
+              {visibleLineZones.map(z => (
                 <span key={z.key} className="flex items-center gap-1">
                   <span
                     className="inline-block w-3 h-1.5 rounded-sm"
-                    style={{ backgroundColor: z.color, opacity: 0.7 }}
+                    style={{ backgroundColor: z.color, opacity: 0.8 }}
                   />
                   <span style={{ color: z.color }}>{z.label}</span>
                 </span>

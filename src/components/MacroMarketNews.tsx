@@ -9,6 +9,15 @@ import { useState } from 'react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+function decodeHTML(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 function isMarketHours(): boolean {
   const wibHour = new Date(
     new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })
@@ -147,7 +156,7 @@ function MacroCard({ a }: { a: Article }) {
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
             <p className="text-sm font-bold text-[#0f172a] leading-snug mb-1.5 line-clamp-2">
-              {a.title}
+              {decodeHTML(a.title)}
             </p>
             {a.aiSummary && (
               <p className="text-xs text-[#4b5563] leading-relaxed line-clamp-2">
@@ -191,16 +200,16 @@ const TOPIC_LIMIT_KEYWORDS = [
 
 function dedupSimilarHeadlines(articles: Article[]): Article[] {
   const kept: Article[] = [];
-  const topicSeen: Record<string, boolean> = {};
+  const topicCount: Record<string, number> = {};
 
   for (const article of articles) {
     const titleLower = article.title.toLowerCase();
 
-    // Max 1 article per high-frequency topic keyword
+    // Max 2 articles per high-frequency topic keyword
     const matchedTopic = TOPIC_LIMIT_KEYWORDS.find(kw => titleLower.includes(kw));
     if (matchedTopic) {
-      if (topicSeen[matchedTopic]) continue;
-      topicSeen[matchedTopic] = true;
+      if ((topicCount[matchedTopic] ?? 0) >= 2) continue;
+      topicCount[matchedTopic] = (topicCount[matchedTopic] ?? 0) + 1;
     }
 
     // Max 1 article per 4+ shared-word cluster

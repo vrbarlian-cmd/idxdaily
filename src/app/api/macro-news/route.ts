@@ -61,7 +61,7 @@ export async function GET() {
       ],
     },
     orderBy: [{ publishedAt: 'desc' }, { impactScore: 'desc' }],
-    take: 12,
+    take: 20,
     select: {
       id: true, title: true, aiSummary: true, url: true, source: true,
       publishedAt: true, sentiment: true, impactScore: true, category: true,

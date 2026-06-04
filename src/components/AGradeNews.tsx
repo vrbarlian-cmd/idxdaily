@@ -46,6 +46,15 @@ function impactScoreColor(s: string) {
   return 'text-[#94A3B8]';
 }
 
+function decodeHTML(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 function isMarketHours(): boolean {
   const wibHour = new Date(
     new Date().toLocaleString('en-US', { timeZone: 'Asia/Jakarta' })
@@ -141,7 +150,7 @@ function ArticleCard({ a }: { a: ArticleData }) {
 
             {/* Title */}
             <p className="text-sm font-bold text-[#0f172a] leading-snug mb-1.5 line-clamp-2">
-              {a.title}
+              {decodeHTML(a.title)}
             </p>
 
             {/* Summary */}

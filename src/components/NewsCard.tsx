@@ -1,6 +1,15 @@
 'use client';
 
 import { formatDistanceToNow } from 'date-fns';
+
+function decodeHTML(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
 import { id as localeId } from 'date-fns/locale';
 import { Sparkles } from 'lucide-react';
 
@@ -124,7 +133,7 @@ export default function NewsCard({
 
       {/* Title */}
       <h3 className="text-sm font-bold text-[#0f172a] leading-snug mb-2 line-clamp-2">
-        {news.title}
+        {decodeHTML(news.title)}
       </h3>
 
       {/* AI Summary */}

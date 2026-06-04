@@ -18,16 +18,16 @@ import type { FearGreedHistoryPoint } from '@/app/api/fear-greed-history/route';
 type Range = '1w' | '1m' | '3m' | 'all';
 
 interface ChartPoint {
-  rawDate:   string;
-  dateLabel: string;
-  fgAll:     number | null;
-  ihsg:      number | null;
-  label:     string;
-}
-
-// Each zone gets its own array — every point has val in exactly one zone
-interface ZonePoint extends ChartPoint {
-  val: number | null;
+  rawDate:    string;
+  dateLabel:  string;
+  fgAll:      number | null;
+  fg_ef:      number | null;   // Extreme Fear  (score < 25)
+  fg_fear:    number | null;   // Fear          (25 ≤ score < 40)
+  fg_neutral: number | null;   // Neutral       (40 ≤ score < 60)
+  fg_greed:   number | null;   // Greed         (60 ≤ score < 75)
+  fg_eg:      number | null;   // Extreme Greed (score ≥ 75)
+  ihsg:       number | null;
+  label:      string;
 }
 
 interface ApiResponse {
@@ -44,12 +44,12 @@ const RANGES: { key: Range; label: string }[] = [
   { key: 'all', label: 'All' },
 ];
 
-// Zone color + legend reference (strict < boundaries, no overlap)
+// Zone color + legend reference (matches Line stroke colors exactly)
 const LINE_ZONES = [
   { threshold: [0,  25], color: '#059669', label: 'Ext. Fear'  },
-  { threshold: [25, 40], color: '#34D399', label: 'Fear'       },
+  { threshold: [25, 40], color: '#10B981', label: 'Fear'       },
   { threshold: [40, 60], color: '#F59E0B', label: 'Neutral'    },
-  { threshold: [60, 75], color: '#F97316', label: 'Greed'      },
+  { threshold: [60, 75], color: '#EF4444', label: 'Greed'      },
   { threshold: [75, 100],color: '#DC2626', label: 'Ext. Greed' },
 ] as const;
 
@@ -62,11 +62,12 @@ const BG_ZONES = [
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Line color: contrarian (Fear=green=opportunity, Greed=red=caution)
+// Must match the Line stroke colors exactly
 function fgColor(score: number): string {
-  if (score <= 25) return '#059669';  // Extreme Fear  — dark green
-  if (score <= 40) return '#34D399';  // Fear          — light green
-  if (score <= 60) return '#F59E0B';  // Neutral       — yellow
-  if (score <= 75) return '#F97316';  // Greed         — orange
+  if (score < 25)  return '#059669';  // Extreme Fear  — dark green
+  if (score < 40)  return '#10B981';  // Fear          — green
+  if (score < 60)  return '#F59E0B';  // Neutral       — yellow
+  if (score < 75)  return '#EF4444';  // Greed         — red
   return '#DC2626';                    // Extreme Greed — dark red
 }
 
@@ -215,56 +216,27 @@ export default function FearGreedChart() {
     };
   }, [filteredPoints]);
 
-  // Build chart data — carry-forward IHSG for holidays, no zone keys
+  // Build chart data — one array, zone keys merged in. Every point in exactly ONE zone.
+  // Carry-forward IHSG for holidays. ComposedChart uses this as its sole data prop.
   const chartData = useMemo<ChartPoint[]>(() => {
     let lastIhsg: number | null = null;
     return filteredPoints.map(p => {
       if (p.ihsgClose !== null) lastIhsg = p.ihsgClose;
+      const s = p.fgSmoothed;
       return {
-        rawDate:   p.date,
-        dateLabel: formatDateLabel(p.date),
-        fgAll:     p.fgSmoothed,
-        ihsg:      p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
-        label:     p.label,
+        rawDate:    p.date,
+        dateLabel:  formatDateLabel(p.date),
+        fgAll:      s,
+        fg_ef:      s !== null && s < 25               ? s : null,
+        fg_fear:    s !== null && s >= 25 && s < 40    ? s : null,
+        fg_neutral: s !== null && s >= 40 && s < 60    ? s : null,
+        fg_greed:   s !== null && s >= 60 && s < 75    ? s : null,
+        fg_eg:      s !== null && s >= 75               ? s : null,
+        ihsg:       p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
+        label:      p.label,
       };
     });
   }, [filteredPoints]);
-
-  // Zone data — 5 separate arrays, every point in exactly ONE zone (no backbone needed)
-  const zoneData = useMemo(() => {
-    const ef:      ZonePoint[] = [];
-    const fear:    ZonePoint[] = [];
-    const neutral: ZonePoint[] = [];
-    const greed:   ZonePoint[] = [];
-    const eg:      ZonePoint[] = [];
-
-    for (const pt of chartData) {
-      const s = pt.fgAll;
-      if (s === null) {
-        ef.push({ ...pt, val: null });
-        fear.push({ ...pt, val: null });
-        neutral.push({ ...pt, val: null });
-        greed.push({ ...pt, val: null });
-        eg.push({ ...pt, val: null });
-      } else if (s < 25) {
-        ef.push({ ...pt, val: s }); fear.push({ ...pt, val: null });
-        neutral.push({ ...pt, val: null }); greed.push({ ...pt, val: null }); eg.push({ ...pt, val: null });
-      } else if (s < 40) {
-        ef.push({ ...pt, val: null }); fear.push({ ...pt, val: s });
-        neutral.push({ ...pt, val: null }); greed.push({ ...pt, val: null }); eg.push({ ...pt, val: null });
-      } else if (s < 60) {
-        ef.push({ ...pt, val: null }); fear.push({ ...pt, val: null });
-        neutral.push({ ...pt, val: s }); greed.push({ ...pt, val: null }); eg.push({ ...pt, val: null });
-      } else if (s < 75) {
-        ef.push({ ...pt, val: null }); fear.push({ ...pt, val: null });
-        neutral.push({ ...pt, val: null }); greed.push({ ...pt, val: s }); eg.push({ ...pt, val: null });
-      } else {
-        ef.push({ ...pt, val: null }); fear.push({ ...pt, val: null });
-        neutral.push({ ...pt, val: null }); greed.push({ ...pt, val: null }); eg.push({ ...pt, val: s });
-      }
-    }
-    return { ef, fear, neutral, greed, eg };
-  }, [chartData]);
 
   const currentPoint = useMemo(() => {
     const live = filteredPoints.filter(p => !p.isBackfilled);
@@ -446,28 +418,22 @@ export default function FearGreedChart() {
                 activeDot={false}
               />
 
-              {/* F&G — 5 zone Lines, each with its own data array.
-                  Every point is in exactly ONE zone → no backbone needed,
-                  no gray bleed, no boundary fallthrough. */}
-              <Line yAxisId="fg" type="monotone" dataKey="val"
-                data={zoneData.ef}      stroke="#059669" strokeWidth={2.5}
-                dot={false} connectNulls={false}
+              {/* F&G — 5 zone Lines on shared chartData. Every point is in exactly
+                  ONE zone key (others null) → no backbone, no gray bleed. */}
+              <Line yAxisId="fg" type="monotone" dataKey="fg_ef"
+                stroke="#059669" strokeWidth={2.5} dot={false} connectNulls={false}
                 activeDot={{ r: 4, fill: '#059669', stroke: 'white', strokeWidth: 2 }} />
-              <Line yAxisId="fg" type="monotone" dataKey="val"
-                data={zoneData.fear}    stroke="#34D399" strokeWidth={2.5}
-                dot={false} connectNulls={false}
-                activeDot={{ r: 4, fill: '#34D399', stroke: 'white', strokeWidth: 2 }} />
-              <Line yAxisId="fg" type="monotone" dataKey="val"
-                data={zoneData.neutral} stroke="#F59E0B" strokeWidth={2.5}
-                dot={false} connectNulls={false}
+              <Line yAxisId="fg" type="monotone" dataKey="fg_fear"
+                stroke="#10B981" strokeWidth={2.5} dot={false} connectNulls={false}
+                activeDot={{ r: 4, fill: '#10B981', stroke: 'white', strokeWidth: 2 }} />
+              <Line yAxisId="fg" type="monotone" dataKey="fg_neutral"
+                stroke="#F59E0B" strokeWidth={2.5} dot={false} connectNulls={false}
                 activeDot={{ r: 4, fill: '#F59E0B', stroke: 'white', strokeWidth: 2 }} />
-              <Line yAxisId="fg" type="monotone" dataKey="val"
-                data={zoneData.greed}   stroke="#F97316" strokeWidth={2.5}
-                dot={false} connectNulls={false}
-                activeDot={{ r: 4, fill: '#F97316', stroke: 'white', strokeWidth: 2 }} />
-              <Line yAxisId="fg" type="monotone" dataKey="val"
-                data={zoneData.eg}      stroke="#DC2626" strokeWidth={2.5}
-                dot={false} connectNulls={false}
+              <Line yAxisId="fg" type="monotone" dataKey="fg_greed"
+                stroke="#EF4444" strokeWidth={2.5} dot={false} connectNulls={false}
+                activeDot={{ r: 4, fill: '#EF4444', stroke: 'white', strokeWidth: 2 }} />
+              <Line yAxisId="fg" type="monotone" dataKey="fg_eg"
+                stroke="#DC2626" strokeWidth={2.5} dot={false} connectNulls={false}
                 activeDot={{ r: 4, fill: '#DC2626', stroke: 'white', strokeWidth: 2 }} />
 
             </ComposedChart>

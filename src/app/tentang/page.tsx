@@ -1,20 +1,20 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Tentang IDXDaily',
-  description: 'Apa itu IDXDaily, bagaimana cara kerjanya, dan dari mana datanya.',
+  title: 'Tentang IHSGDaily',
+  description: 'Apa itu IHSGDaily, bagaimana cara kerjanya, dan dari mana datanya.',
 };
 
 export default function TentangPage() {
   return (
     <div className="min-h-screen bg-stone-50">
       <main className="max-w-3xl mx-auto px-4 py-10 space-y-6">
-        <h1 className="text-2xl font-bold text-[#0f172a]">Tentang IDXDaily</h1>
+        <h1 className="text-2xl font-bold text-[#0f172a]">Tentang IHSGDaily</h1>
 
         <div className="bg-white rounded-xl border border-stone-200 p-6 space-y-4 text-sm text-stone-700 leading-relaxed">
-          <h2 className="font-semibold text-base text-[#0f172a]">Apa itu IDXDaily?</h2>
+          <h2 className="font-semibold text-base text-[#0f172a]">Apa itu IHSGDaily?</h2>
           <p>
-            IDXDaily adalah agregator berita dan sentimen pasar saham Indonesia. Kami mengumpulkan
+            IHSGDaily adalah agregator berita dan sentimen pasar saham Indonesia. Kami mengumpulkan
             berita dari berbagai media keuangan, mengidentifikasi saham yang dibahas, lalu
             meringkasnya menggunakan kecerdasan buatan. Tujuannya satu: membantu investor ritel
             memantau pasar lebih efisien tanpa harus membaca puluhan artikel per hari.
@@ -22,7 +22,7 @@ export default function TentangPage() {
 
           <h2 className="font-semibold text-base text-[#0f172a]">Fear &amp; Greed Index</h2>
           <p>
-            Indeks Fear &amp; Greed IDXDaily dihitung setiap hari dari dua komponen utama:
+            Indeks Fear &amp; Greed IHSGDaily dihitung setiap hari dari dua komponen utama:
           </p>
           <ul className="list-disc list-inside space-y-1 pl-2">
             <li><span className="font-medium">Aliran dana asing</span> - net buy/sell investor asing di BEI (data Stockbit/RTI). Asing jual besar → Fear; asing beli besar → Greed.</li>
@@ -51,7 +51,7 @@ export default function TentangPage() {
           </p>
 
           <p className="text-xs text-stone-500 border-t border-stone-100 pt-4">
-            IDXDaily bukan penasihat investasi. Seluruh informasi di situs ini bersifat edukatif
+            IHSGDaily bukan penasihat investasi. Seluruh informasi di situs ini bersifat edukatif
             dan informatif. Keputusan investasi sepenuhnya merupakan tanggung jawab pembaca.
           </p>
         </div>

@@ -31,15 +31,6 @@ interface ApiResponse {
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// Zone color + legend reference (matches Line stroke colors exactly)
-const LINE_ZONES = [
-  { threshold: [0,  25], color: '#059669', label: 'Ext. Fear'  },
-  { threshold: [25, 40], color: '#10B981', label: 'Fear'       },
-  { threshold: [40, 60], color: '#F59E0B', label: 'Neutral'    },
-  { threshold: [60, 75], color: '#EF4444', label: 'Greed'      },
-  { threshold: [75, 100],color: '#DC2626', label: 'Ext. Greed' },
-] as const;
-
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // Line color: contrarian (Fear=green=opportunity, Greed=red=caution)
@@ -146,53 +137,53 @@ function StatItem({
 }
 
 // ── Colored F&G line overlay ──────────────────────────────────────────────────
-// Draws one SVG <line> segment per consecutive point pair, colored by zone.
-// Uses Recharts' Customized component which injects formattedGraphicalItems —
-// each item carries the pre-computed pixel coordinates for a Line's data.
-// One continuous segment array = zero gaps, zero zone-split complexity.
+// Draws colored SVG <line> segments using Recharts' injected scale functions.
+// Customized component receives: xAxisMap, yAxisMap (with .scale()), data array.
+// This is the reliable approach — no dependency on formattedGraphicalItems.
 
-type RechartsPoint = {
-  x: number;
-  y: number;
-  value?: number;
-  payload?: ChartPoint;
-};
+type ScaleFn = { (v: string): number; bandwidth?: () => number };
+type AxisEntry = { scale: ScaleFn; orientation?: string };
 
-type GraphicalItem = {
-  props?: {
-    dataKey?: string;
-    points?: RechartsPoint[];
-  };
-};
+function FGColoredLine(props: Record<string, unknown>) {
+  const xAxisMap = props.xAxisMap as Record<string | number, AxisEntry> | undefined;
+  const yAxisMap = props.yAxisMap as Record<string, AxisEntry>          | undefined;
+  const data     = props.data     as ChartPoint[]                        | undefined;
 
-function ColoredFGLine(props: Record<string, unknown>) {
-  const items = (props.formattedGraphicalItems as GraphicalItem[] | undefined) ?? [];
-  const fgItem = items.find(it => it.props?.dataKey === 'fgAll');
-  const points = fgItem?.props?.points;
+  if (!xAxisMap || !yAxisMap || !data || data.length < 2) return null;
 
-  if (!points || points.length < 2) return null;
+  const xAxis = Object.values(xAxisMap)[0];
+  const yAxis = yAxisMap['fg'];          // matches <YAxis yAxisId="fg">
+  if (!xAxis?.scale || !yAxis?.scale) return null;
 
-  return (
-    <g>
-      {points.slice(0, -1).map((p1, i) => {
-        const p2 = points[i + 1];
-        // skip if either endpoint is missing (null fgAll → y undefined in Recharts)
-        if (p1.y == null || p2.y == null || isNaN(p1.y) || isNaN(p2.y)) return null;
-        const score = p1.payload?.fgAll ?? p1.value ?? null;
-        if (score == null) return null;
-        return (
-          <line
-            key={i}
-            x1={p1.x} y1={p1.y}
-            x2={p2.x} y2={p2.y}
-            stroke={fgColor(score)}
-            strokeWidth={2.5}
-            strokeLinecap="round"
-          />
-        );
-      })}
-    </g>
-  );
+  const bw = xAxis.scale.bandwidth?.() ?? 0;
+  const segs: React.ReactElement[] = [];
+
+  for (let i = 0; i < data.length - 1; i++) {
+    const curr = data[i];
+    const next = data[i + 1];
+    if (curr.fgAll == null || next.fgAll == null) continue;
+
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const x1 = (xAxis.scale as any)(curr.dateLabel) + bw / 2;
+    const y1 = (yAxis.scale as any)(curr.fgAll);
+    const x2 = (xAxis.scale as any)(next.dateLabel) + bw / 2;
+    const y2 = (yAxis.scale as any)(next.fgAll);
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+
+    if (isNaN(x1) || isNaN(y1) || isNaN(x2) || isNaN(y2)) continue;
+
+    segs.push(
+      <line
+        key={i}
+        x1={x1} y1={y1} x2={x2} y2={y2}
+        stroke={fgColor(curr.fgAll)}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+      />
+    );
+  }
+
+  return <g>{segs}</g>;
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -277,11 +268,6 @@ export default function FearGreedChart() {
   const xInterval = chartData.length > 60 ? Math.floor(chartData.length / 10)
                   : chartData.length > 30 ? Math.floor(chartData.length / 8)
                   : 'preserveStartEnd';
-
-  // Visible line zones for legend (within current domain)
-  const visibleLineZones = LINE_ZONES.filter(
-    z => z.threshold[1] > fgDomainMin && z.threshold[0] < fgDomainMax
-  );
 
   const hasData = !loading && !error && chartData.length > 0;
 
@@ -397,52 +383,23 @@ export default function FearGreedChart() {
                 activeDot={false}
               />
 
-              {/* F&G — transparent Line establishes pixel coordinates for Recharts,
-                  ColoredFGLine overlay draws the actual colored SVG segments.
-                  One continuous path = zero gaps, no zone-split complexity. */}
-              <Line
-                yAxisId="fg"
-                type="monotone"
-                dataKey="fgAll"
-                stroke="transparent"
-                strokeWidth={0}
-                dot={false}
-                connectNulls
-                activeDot={false}
-              />
-              <Customized component={ColoredFGLine} />
+              {/* F&G — Customized draws one SVG <line> per point pair using
+                  xAxisMap/yAxisMap scale functions. Tooltip still works because
+                  IHSG payload[0].payload contains the full ChartPoint incl fgAll. */}
+              <Customized component={FGColoredLine} />
 
             </ComposedChart>
           </ResponsiveContainer>
 
           {/* Legend */}
-          <div className="flex flex-wrap items-center justify-between mt-2 px-3 gap-y-1.5">
-            <div className="flex items-center gap-4 text-xs">
-              <div className="flex items-center gap-1.5">
-                <span
-                  className="inline-block w-5 rounded"
-                  style={{ height: 2.5, backgroundColor: currentColor }}
-                />
-                <span className="font-medium" style={{ color: currentColor }}>
-                  Fear &amp; Greed
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="inline-block w-5 rounded" style={{ height: 2, backgroundColor: '#1E40AF', opacity: 0.7 }} />
-                <span style={{ color: '#1E40AF', opacity: 0.7 }}>IHSG</span>
-              </div>
+          <div className="flex items-center gap-4 mt-2 px-3 text-xs">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-5 rounded" style={{ height: 2.5, backgroundColor: currentColor }} />
+              <span className="font-medium" style={{ color: currentColor }}>Fear &amp; Greed</span>
             </div>
-
-            <div className="hidden sm:flex items-center gap-2 text-[10px]">
-              {visibleLineZones.map(z => (
-                <span key={z.label} className="flex items-center gap-1">
-                  <span
-                    className="inline-block w-3 h-1.5 rounded-sm"
-                    style={{ backgroundColor: z.color, opacity: 0.8 }}
-                  />
-                  <span style={{ color: z.color }}>{z.label}</span>
-                </span>
-              ))}
+            <div className="flex items-center gap-1.5">
+              <span className="inline-block w-5 rounded" style={{ height: 2, backgroundColor: '#1E40AF', opacity: 0.7 }} />
+              <span style={{ color: '#1E40AF', opacity: 0.7 }}>IHSG</span>
             </div>
           </div>
         </div>

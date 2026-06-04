@@ -40,23 +40,24 @@ const RANGES: { key: Range; label: string }[] = [
 ];
 
 // Zone bands — only rendered on 3M / All views where the full range is relevant
+// Colors follow inverted logic: Fear=green (opportunity), Greed=red (caution)
 const ZONES = [
-  { y1: 0,  y2: 25,  fill: '#f5f3ff', label: 'Ext. Fear',  labelColor: '#7C3AED' },
-  { y1: 25, y2: 40,  fill: '#fef2f2', label: 'Fear',        labelColor: '#EF4444' },
+  { y1: 0,  y2: 25,  fill: '#f0fdf4', label: 'Ext. Fear',  labelColor: '#10B981' },
+  { y1: 25, y2: 40,  fill: '#f7fef9', label: 'Fear',        labelColor: '#34D399' },
   { y1: 40, y2: 60,  fill: '#fafafa', label: 'Neutral',     labelColor: '#9ca3af' },
-  { y1: 60, y2: 75,  fill: '#f0fdf4', label: 'Greed',       labelColor: '#10B981' },
-  { y1: 75, y2: 100, fill: '#dcfce7', label: 'Ext. Greed',  labelColor: '#059669' },
+  { y1: 60, y2: 75,  fill: '#fff7ed', label: 'Greed',       labelColor: '#F97316' },
+  { y1: 75, y2: 100, fill: '#fef2f2', label: 'Ext. Greed',  labelColor: '#EF4444' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-// FIX 1: color by zone, not by gradient
+// FIX 2: inverted — Fear=green (buying opportunity), Greed=red (caution)
 function fgColor(score: number): string {
-  if (score >= 76) return '#059669';  // Extreme Greed — dark green
-  if (score >= 61) return '#10B981';  // Greed          — green
-  if (score >= 41) return '#F59E0B';  // Neutral        — amber
-  if (score >= 26) return '#EF4444';  // Fear           — red
-  return '#7C3AED';                    // Extreme Fear   — purple (visible on pale bg)
+  if (score <= 25) return '#10B981';  // Extreme Fear  — green  (max opportunity)
+  if (score <= 40) return '#34D399';  // Fear          — light green
+  if (score <= 60) return '#F59E0B';  // Neutral       — amber
+  if (score <= 75) return '#F97316';  // Greed         — orange
+  return '#EF4444';                    // Extreme Greed — red    (max caution)
 }
 
 function formatDateLabel(dateStr: string): string {
@@ -197,14 +198,19 @@ export default function FearGreedChart() {
     };
   }, [filteredPoints]);
 
+  // FIX 1: carry forward last known IHSG on holidays/weekends → flat line, no gap
   const chartData = useMemo<ChartPoint[]>(() => {
-    return filteredPoints.map(p => ({
-      rawDate:   p.date,
-      dateLabel: formatDateLabel(p.date),
-      fgAll:     p.fgSmoothed,
-      ihsg:      p.ihsgClose,
-      label:     p.label,
-    }));
+    let lastIhsg: number | null = null;
+    return filteredPoints.map(p => {
+      if (p.ihsgClose !== null) lastIhsg = p.ihsgClose;
+      return {
+        rawDate:   p.date,
+        dateLabel: formatDateLabel(p.date),
+        fgAll:     p.fgSmoothed,
+        ihsg:      p.ihsgClose !== null ? p.ihsgClose : lastIhsg,
+        label:     p.label,
+      };
+    });
   }, [filteredPoints]);
 
   const currentPoint = useMemo(() => {

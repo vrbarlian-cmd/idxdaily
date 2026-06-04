@@ -1,8 +1,11 @@
+'use client';
+
 import { Sparkles } from 'lucide-react';
-import { prisma } from '@/lib/prisma';
 import Link from 'next/link';
 import { format, isToday, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
+import useSWR from 'swr';
+import { useState } from 'react';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -44,19 +47,31 @@ function categoryBadge(c: string | null) {
   return 'bg-[#f8f7f4] text-[#9ca3af] border-[#e5e2db]';
 }
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface Article {
+  id:          string;
+  title:       string;
+  aiSummary:   string | null;
+  url:         string | null;
+  source:      string;
+  publishedAt: string | null;   // ISO string from JSON
+  sentiment:   string;
+  impactScore: number;
+  category:    string | null;
+  ticker:      { symbol: string } | null;
+}
+
 // ── Date badge ────────────────────────────────────────────────────────────────
 
-function PubDate({ date }: { date: Date | null }) {
-  if (!date) return null;
+function PubDate({ dateStr }: { dateStr: string | null }) {
+  if (!dateStr) return null;
+  const date = new Date(dateStr);
   if (isToday(date)) {
     const wib = date.toLocaleTimeString('id-ID', {
       hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
     });
-    return (
-      <span className="text-[11px] text-[#9ca3af] tabular-nums">
-        {wib} WIB
-      </span>
-    );
+    return <span className="text-[11px] text-[#9ca3af] tabular-nums">{wib} WIB</span>;
   }
   const label = format(date, 'd MMM', { locale: localeId });
   const ago   = formatDistanceToNow(date, { addSuffix: true, locale: localeId });
@@ -68,19 +83,6 @@ function PubDate({ date }: { date: Date | null }) {
 }
 
 // ── Article card ──────────────────────────────────────────────────────────────
-
-interface Article {
-  id:          string;
-  title:       string;
-  aiSummary:   string | null;
-  url:         string | null;
-  source:      string;
-  publishedAt: Date | null;
-  sentiment:   string;
-  impactScore: number;
-  category:    string | null;
-  ticker:      { symbol: string } | null;
-}
 
 function MacroCard({ a }: { a: Article }) {
   return (
@@ -103,13 +105,13 @@ function MacroCard({ a }: { a: Article }) {
             </span>
           )}
 
-          {/* Sentiment — dot + plain text, no pill */}
+          {/* Sentiment */}
           <span className={`inline-flex items-center gap-1.5 text-xs font-semibold flex-shrink-0 ${sentimentTextColor(a.sentiment)}`}>
             <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sentimentDot(a.sentiment)}`} />
             {sentimentLabel(a.sentiment)}
           </span>
 
-          {/* AI badge — plain, no gradient */}
+          {/* AI badge */}
           {a.aiSummary && (
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#1a56db] flex-shrink-0">
               <Sparkles className="w-2.5 h-2.5" />
@@ -127,10 +129,10 @@ function MacroCard({ a }: { a: Article }) {
             </Link>
           )}
 
-          {/* Source + date — right-aligned */}
+          {/* Source + date */}
           <div className="ml-auto flex items-center gap-2 flex-shrink-0">
             <span className="text-[11px] text-[#9ca3af]">{a.source}</span>
-            <PubDate date={a.publishedAt} />
+            <PubDate dateStr={a.publishedAt} />
           </div>
         </div>
 
@@ -170,66 +172,32 @@ function MacroCard({ a }: { a: Article }) {
   );
 }
 
-// ── Company-specific title filter ─────────────────────────────────────────────
+// ── SWR fetcher ───────────────────────────────────────────────────────────────
 
-const MACRO_ACRONYMS = new Set([
-  'BI', 'OJK', 'BEI', 'LPS', 'KSSK', 'LPS',
-  'IHSG', 'LQ45', 'IDX', 'IDR', 'USD', 'EUR', 'JPY', 'CNY', 'SGD',
-  'US', 'EU', 'UK', 'IMF', 'WTO', 'OPEC', 'G20', 'G7',
-  'Fed', 'ECB', 'BOJ', 'RBI',
-  'MSCI', 'FTSE', 'DJIA', 'SPX', 'DXY',
-  'GDP', 'PMI', 'CPI', 'PPI', 'SBN', 'ETF', 'IPO',
-  'APBN', 'APBD', 'PPN', 'PPh', 'BUMN', 'PNBP',
-]);
-
-function looksCompanySpecific(title: string): boolean {
-  if (/^saham[\s-]/i.test(title)) return true;
-  if (/\bemiten\s+[A-Z]{2,5}\b/i.test(title)) return true;
-  if (/\bdividen\b/i.test(title)) return true;
-  if (/^(laba|rugi|pendapatan)\s+[A-Z]{2,5}\b/i.test(title)) return true;
-  const leadWord = title.match(/^([A-Z]{2,5})(?=[\s:])/)?.[1];
-  if (leadWord && !MACRO_ACRONYMS.has(leadWord)) return true;
-  return false;
-}
+const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default async function MacroMarketNews() {
-  const GLOBAL_SOURCES = [
-    'Bloomberg Markets', 'CNBC International', 'Investing.com', 'Federal Reserve',
-  ];
+export default function MacroMarketNews() {
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const raw = await prisma.news.findMany({
-    where: {
-      aiSummary: { not: null },
-      tickerId:  null,
-      OR: [
-        // Domestic sources — keep impact score threshold to filter noise
-        { category: 'MACRO',      impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
-        { category: 'REGULATORY', impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
-        { category: 'SECTOR',     impactScore: { gte: 7.0 }, source: { notIn: GLOBAL_SOURCES } },
-        // Global sources — 4.5 floor filters pure noise while keeping
-        // conservative Gemini scores (4.0-5.5) for genuinely relevant items.
-        { source: { in: GLOBAL_SOURCES }, aiSummary: { not: null }, impactScore: { gte: 4.5 } },
-      ],
+  const { data: articles = [], isLoading } = useSWR<Article[]>(
+    '/api/macro-news',
+    fetcher,
+    {
+      refreshInterval:   60_000,
+      revalidateOnFocus: true,
+      onSuccess: () => setLastUpdated(new Date()),
     },
-    orderBy: [
-      { publishedAt: 'desc' },
-      { impactScore:  'desc' },
-    ],
-    take: 12,
-    select: {
-      id: true, title: true, aiSummary: true, url: true, source: true,
-      publishedAt: true, sentiment: true, impactScore: true, category: true,
-      ticker: { select: { symbol: true } },
-    },
-  });
+  );
 
-  const articles = raw
-    .filter(a => !looksCompanySpecific(a.title))
-    .slice(0, 6);
+  const hasFresh = articles.some(a => a.publishedAt && isToday(new Date(a.publishedAt)));
 
-  const hasFresh = articles.some(a => a.publishedAt && isToday(a.publishedAt));
+  const updatedLabel = lastUpdated
+    ? `Diperbarui ${lastUpdated.toLocaleTimeString('id-ID', {
+        hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
+      })} WIB`
+    : null;
 
   return (
     <section>
@@ -244,8 +212,11 @@ export default async function MacroMarketNews() {
             Berita Makro &amp; Pasar
           </h2>
         </div>
-        <div className="flex items-center gap-2">
-          {(!hasFresh || articles.length === 0) && (
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {updatedLabel && (
+            <span className="text-[10px] text-[#9ca3af] tabular-nums">{updatedLabel}</span>
+          )}
+          {!isLoading && !hasFresh && articles.length > 0 && (
             <span className="text-[11px] text-amber-700 bg-amber-50 border border-amber-100 rounded-full px-2.5 py-1 font-medium">
               Tidak ada berita makro baru hari ini
             </span>
@@ -257,11 +228,15 @@ export default async function MacroMarketNews() {
       <hr className="border-[#e5e2db] mb-4" />
 
       {/* Articles */}
-      {articles.length > 0 ? (
+      {isLoading ? (
         <div className="space-y-3">
-          {articles.map(a => (
-            <MacroCard key={a.id} a={a} />
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="bg-white border border-[#e5e2db] rounded-xl h-24 animate-pulse" />
           ))}
+        </div>
+      ) : articles.length > 0 ? (
+        <div className="space-y-3">
+          {articles.map(a => <MacroCard key={a.id} a={a} />)}
         </div>
       ) : (
         <div className="py-8 text-center text-sm text-[#9ca3af]">

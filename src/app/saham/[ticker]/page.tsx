@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma';
 import NewsCard from '@/components/NewsCard';
 import TrendingTickers from '@/components/TrendingTickers';
 import ArchiveSection from '@/components/ArchiveSection';
+import { dedupArticles } from '@/lib/dedupArticles';
 
 interface PageProps {
   params: { ticker: string };
@@ -217,10 +218,12 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
     select: MENTION_SELECT,
   });
 
-  const recentNews = sortMentions(recentRaw)
-    .filter(m => !sentimentFilter
-      || (m.sentiment ?? m.article.sentiment) === sentimentFilter)
-    .map(mapMention);
+  const recentNews = dedupArticles(
+    sortMentions(recentRaw)
+      .filter(m => !sentimentFilter
+        || (m.sentiment ?? m.article.sentiment) === sentimentFilter)
+      .map(mapMention)
+  );
 
   // ── "Arsip" — older than 30 days (clearly labeled, collapsible) ───────────
   // Only fetch archive when recent news is sparse (< 5 items after filtering)
@@ -233,9 +236,11 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
         take: 20,
         select: MENTION_SELECT,
       }).then(rows =>
-          sortMentions(rows)
-            .filter(m => !sentimentFilter || (m.sentiment ?? m.article.sentiment) === sentimentFilter)
-            .map(mapMention)
+          dedupArticles(
+            sortMentions(rows)
+              .filter(m => !sentimentFilter || (m.sentiment ?? m.article.sentiment) === sentimentFilter)
+              .map(mapMention)
+          )
       )
     : [];
 

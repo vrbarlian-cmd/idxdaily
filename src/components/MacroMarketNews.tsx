@@ -6,6 +6,7 @@ import { format, isToday, formatDistanceToNow } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import useSWR from 'swr';
 import { useState } from 'react';
+import { dedupArticles } from '@/lib/dedupArticles';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -188,41 +189,6 @@ function MacroCard({ a }: { a: Article }) {
   );
 }
 
-// ── Display-level dedup ───────────────────────────────────────────────────────
-// Runs client-side after fetch. Catches same-topic articles that slip through
-// the API-level dedup across separate fetch windows.
-
-const TOPIC_LIMIT_KEYWORDS = [
-  'rupiah', 'dolar as', 'usd/idr', 'kurs dolar',
-  'ihsg turun', 'ihsg naik', 'ihsg menguat', 'ihsg melemah', 'ihsg anjlok',
-  'bi rate', 'suku bunga', 'inflasi',
-];
-
-function dedupSimilarHeadlines(articles: Article[]): Article[] {
-  const kept: Article[] = [];
-  const topicCount: Record<string, number> = {};
-
-  for (const article of articles) {
-    const titleLower = article.title.toLowerCase();
-
-    // Max 2 articles per high-frequency topic keyword
-    const matchedTopic = TOPIC_LIMIT_KEYWORDS.find(kw => titleLower.includes(kw));
-    if (matchedTopic) {
-      if ((topicCount[matchedTopic] ?? 0) >= 2) continue;
-      topicCount[matchedTopic] = (topicCount[matchedTopic] ?? 0) + 1;
-    }
-
-    // Max 1 article per 4+ shared-word cluster
-    const words = new Set(titleLower.split(/\s+/).filter(w => w.length > 3));
-    const isDup = kept.some(k => {
-      const kWords = new Set(k.title.toLowerCase().split(/\s+/).filter(w => w.length > 3));
-      return Array.from(words).filter(w => kWords.has(w)).length >= 4;
-    });
-    if (!isDup) kept.push(article);
-  }
-  return kept;
-}
-
 // ── SWR fetcher ───────────────────────────────────────────────────────────────
 
 const fetcher = (url: string) => fetch(url).then(r => r.json());
@@ -242,8 +208,8 @@ export default function MacroMarketNews() {
     },
   );
 
-  // Display-level dedup: topic keywords + 4-word overlap
-  const articles = dedupSimilarHeadlines(raw);
+  // Display-level dedup: shared topic-keyword + 4-word-overlap util
+  const articles = dedupArticles(raw);
 
   const hasFresh = articles.some(a => a.publishedAt && isToday(new Date(a.publishedAt)));
 

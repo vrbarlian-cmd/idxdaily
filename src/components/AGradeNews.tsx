@@ -6,6 +6,7 @@ import { format, formatDistanceToNow, isToday } from 'date-fns';
 import { id as localeId } from 'date-fns/locale';
 import useSWR from 'swr';
 import { useState } from 'react';
+import { dedupArticles } from '@/lib/dedupArticles';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -214,7 +215,9 @@ export default function AGradeNews() {
     },
   );
 
-  if (!isLoading && articles.length === 0) return null;
+  const deduped = dedupArticles(articles);
+
+  if (!isLoading && deduped.length === 0) return null;
 
   const updatedLabel = lastUpdated
     ? `Diperbarui ${lastUpdated.toLocaleTimeString('id-ID', {
@@ -258,7 +261,7 @@ export default function AGradeNews() {
         </div>
       ) : (
         <div className="space-y-3">
-          {articles.map(a => <ArticleCard key={a.id} a={a} />)}
+          {deduped.map(a => <ArticleCard key={a.id} a={a} />)}
         </div>
       )}
     </section>

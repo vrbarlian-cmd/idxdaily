@@ -6,9 +6,9 @@ interface LogoProps {
 }
 
 /**
- * IHSGDaily brand logo.
+ * SahamDaily brand logo.
  *
- * iconOnly=false → candlestick icon + "IHSGDaily" wordmark (font inherits site Inter)
+ * iconOnly=false → candlestick icon + "SahamDaily" wordmark (font inherits site Inter)
  * iconOnly=true  → dark rounded-square icon only (used for favicon / compact contexts)
  */
 export default function Logo({ height = 36, iconOnly = false }: LogoProps) {
@@ -19,7 +19,7 @@ export default function Logo({ height = 36, iconOnly = false }: LogoProps) {
         height={height}
         width={height}
         xmlns="http://www.w3.org/2000/svg"
-        aria-label="IHSGDaily"
+        aria-label="SahamDaily"
         role="img"
       >
         {/* Dark rounded background */}
@@ -69,7 +69,7 @@ export default function Logo({ height = 36, iconOnly = false }: LogoProps) {
 
       {/* Wordmark — rendered as HTML so it inherits site Inter font */}
       <span className="font-bold tracking-tight leading-none" style={{ fontSize }}>
-        <span className="text-stone-900">IHSG</span>
+        <span className="text-stone-900">Saham</span>
         <span style={{ color: '#0d9488' }}>Daily</span>
       </span>
     </span>

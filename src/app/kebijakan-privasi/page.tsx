@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Kebijakan Privasi - IHSGDaily',
-  description: 'Kebijakan privasi IHSGDaily: data apa yang dikumpulkan dan bagaimana penggunaannya.',
+  title: 'Kebijakan Privasi - SahamDaily',
+  description: 'Kebijakan privasi SahamDaily: data apa yang dikumpulkan dan bagaimana penggunaannya.',
 };
 
 export default function KebijakanPrivasiPage() {
@@ -17,7 +17,7 @@ export default function KebijakanPrivasiPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base text-[#0f172a]">Data yang Kami Kumpulkan</h2>
             <p>
-              IHSGDaily mengumpulkan data yang sangat minimal dan tidak bersifat pribadi:
+              SahamDaily mengumpulkan data yang sangat minimal dan tidak bersifat pribadi:
             </p>
             <ul className="list-disc list-inside space-y-1 pl-2">
               <li>
@@ -36,7 +36,7 @@ export default function KebijakanPrivasiPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base text-[#0f172a]">Data yang Tidak Kami Kumpulkan</h2>
             <p>
-              IHSGDaily tidak memiliki sistem akun pengguna. Kami tidak mengumpulkan nama, alamat
+              SahamDaily tidak memiliki sistem akun pengguna. Kami tidak mengumpulkan nama, alamat
               email, nomor telepon, atau informasi pribadi lainnya. Tidak ada cookie pelacak pihak
               ketiga yang digunakan saat ini.
             </p>
@@ -55,7 +55,7 @@ export default function KebijakanPrivasiPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base text-[#0f172a]">Iklan (Google AdSense)</h2>
             <p>
-              IHSGDaily menggunakan Google AdSense untuk menampilkan iklan. Google AdSense dapat
+              SahamDaily menggunakan Google AdSense untuk menampilkan iklan. Google AdSense dapat
               menggunakan cookie untuk menampilkan iklan yang relevan berdasarkan kunjungan Anda
               sebelumnya ke situs ini atau situs lain. Anda dapat menonaktifkan penggunaan cookie
               iklan berbasis minat di{' '}

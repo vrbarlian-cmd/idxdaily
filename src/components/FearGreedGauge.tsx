@@ -248,7 +248,7 @@ export default function FearGreedGauge({
 
       {/* Footer */}
       <div className="flex justify-between items-center pt-2 border-t border-stone-100">
-        <span className="text-xs text-stone-400">ihsgdaily.id</span>
+        <span className="text-xs text-stone-400">sahamdaily.id</span>
         <span className="text-xs text-stone-400">Updated {wib} WIB</span>
       </div>
     </div>

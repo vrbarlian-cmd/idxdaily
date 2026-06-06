@@ -41,6 +41,8 @@ import statistics
 from datetime import datetime, timezone, timedelta, date
 from pathlib import Path
 
+import asyncpg
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 from dotenv import load_dotenv
@@ -159,6 +161,22 @@ async def fetch_foreign_flow(conn, days: int = 90) -> list[dict]:
     )
     return [{"date": r["date"], "net": float(r["net_idr_billions"])}
             for r in rows if r["net_idr_billions"] is not None]
+
+
+async def fetch_market_breadth(conn, days: int = 90) -> list[dict]:
+    """Returns last N days of market breadth (advance/total %), sorted date asc.
+    Returns [] if the table doesn't exist yet (graceful for fresh environments)."""
+    cutoff = datetime.now(timezone.utc).date() - timedelta(days=days)
+    try:
+        rows = await conn.fetch(
+            "SELECT date, breadth_pct FROM market_breadth_daily "
+            "WHERE date >= $1 ORDER BY date ASC",
+            cutoff,
+        )
+    except asyncpg.UndefinedTableError:
+        return []
+    return [{"date": r["date"], "breadth_pct": float(r["breadth_pct"])}
+            for r in rows if r["breadth_pct"] is not None]
 
 
 async def fetch_previous_smoothed(conn) -> float | None:
@@ -350,15 +368,41 @@ def compute_headline_sentiment(rows: list[dict]) -> Component:
     }
 
 
-def compute_breadth(_stock_prices: dict[str, list[float]]) -> Component:
+def compute_breadth(breadth_rows: list[dict]) -> Component:
     """
-    Market Breadth — deprioritized, marked coming soon.
-    Will be enabled once 5-component index is stable.
+    Market Breadth — % of stocks advancing (advance/total), manually entered
+    daily via set_market_breadth.py. Percentile-ranked vs 90-day history.
+
+    High breadth (many stocks up) = broad participation = Greed.
+    Low breadth (few up) = narrow/weak market = Fear.
+    Requires >= 30 data points to activate (percentile rank needs history depth).
     """
-    return make_unavailable(
-        "breadth", "Market Breadth", 0.10,
-        "Market breadth — segera hadir"
-    )
+    MIN_ROWS = 30
+
+    if len(breadth_rows) < MIN_ROWS:
+        n = len(breadth_rows)
+        note = (
+            "Diperbarui manual setiap hari via set_market_breadth.py."
+            if n == 0
+            else f"Baru {n} hari data — butuh min {MIN_ROWS} untuk aktif"
+        )
+        return make_unavailable("breadth", "Market Breadth", 0.10, note)
+
+    pcts    = [r["breadth_pct"] for r in breadth_rows]
+    current = pcts[-1]
+    history = pcts[:-1]
+    score   = percentile_rank(current, history)
+
+    return {
+        "id": "breadth", "label": "Market Breadth", "weight": 0.10,
+        "score": round(score, 1), "status": "active",
+        "raw": current,
+        "raw_label": (
+            f"{current:.0f}% saham menguat "
+            f"(p{score:.0f}, {len(breadth_rows)} hari data)"
+        ),
+        "note": None,
+    }
 
 
 def compute_foreign_flow(flow_rows: list[dict]) -> Component:
@@ -493,6 +537,7 @@ async def run(days: int) -> None:
         article_rows_nd  = await fetch_all_articles(conn, days=days)
         stock_prices     = await fetch_stock_daily(conn, days=35)       # 35 cal days ≈ 25 trading days for MA20
         flow_rows        = await fetch_foreign_flow(conn, days=90)
+        breadth_rows     = await fetch_market_breadth(conn, days=90)
         prev_smoothed    = await fetch_previous_smoothed(conn)
 
         components = [
@@ -501,7 +546,7 @@ async def run(days: int) -> None:
             compute_foreign_flow(flow_rows),
             compute_rupiah_stress(usdidr_bars),
             compute_headline_sentiment(article_rows_48h),
-            compute_breadth(stock_prices),
+            compute_breadth(breadth_rows),
         ]
 
         raw_score, label, active_cnt = aggregate(components)
@@ -556,6 +601,7 @@ async def run(days: int) -> None:
         print(f"  Articles ({days:2d}d)  : {len(article_rows_nd)}")
         print(f"  LQ45 stocks    : {len(stock_prices)}")
         print(f"  Foreign flow d : {len(flow_rows)}")
+        print(f"  Breadth days   : {len(breadth_rows)}")
         print(f"{'='*64}\n")
 
     finally:

@@ -45,6 +45,29 @@ function buildMentionWhere(
   if (dateLt) dateFilter.lt = dateLt;
   const hasDateFilter = Object.keys(dateFilter).length > 0;
 
+  const validSentiment =
+    !!sentimentFilter && ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(sentimentFilter);
+
+  // Match-type branch: high/medium ticker matches OR (optionally) macro-impact mentions.
+  const matchTypeOr: Record<string, unknown>[] = [
+    { matchConfidence: { in: ['high', 'medium'] } },
+    ...(includeMacro ? [{ matchType: 'macro_impact' as const }] : []),
+  ];
+
+  // Sentiment branch — applied at the TOP level (AND) so it constrains BOTH
+  // ticker-match AND macro-impact rows. Previously it lived only inside the
+  // high/medium branch, so macro-impact mentions of any sentiment leaked through
+  // (e.g. Bearish macro articles appearing under the Neutral filter). Falls back
+  // to article.sentiment when the mention's own sentiment is null.
+  const sentimentAnd = validSentiment
+    ? [{
+        OR: [
+          { sentiment: sentimentFilter },
+          { sentiment: null, article: { sentiment: sentimentFilter } },
+        ],
+      }]
+    : [];
+
   // INVARIANT: only show articles that have been enriched (aiSummary IS NOT NULL).
   // Unenriched articles stay hidden until enrichment completes — they must never
   // display with the DB-default NEUTRAL/5.0 placeholder values.
@@ -53,19 +76,9 @@ function buildMentionWhere(
     article: hasDateFilter
       ? { publishedAt: { ...dateFilter, not: null as null }, aiSummary: { not: null } }
       : { publishedAt: { not: null as null }, aiSummary: { not: null } },
-    OR: [
-      {
-        matchConfidence: { in: ['high', 'medium'] },
-        ...(sentimentFilter && ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(sentimentFilter)
-          ? {
-              OR: [
-                { sentiment: sentimentFilter },
-                { sentiment: null, article: { sentiment: sentimentFilter } },
-              ],
-            }
-          : {}),
-      },
-      ...(includeMacro ? [{ matchType: 'macro_impact' as const }] : []),
+    AND: [
+      { OR: matchTypeOr },
+      ...sentimentAnd,
     ],
   };
 }

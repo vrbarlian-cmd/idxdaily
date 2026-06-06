@@ -861,7 +861,11 @@ async def run_once(
                 # Secondary guard: multiple outlets covering the SAME analyst
                 # action on the SAME ticker on the SAME DAY are duplicates even
                 # though the keyword bypass is active.  Compare same-ticker
-                # same-day titles at a relaxed Jaccard threshold (0.50).
+                # same-day titles at a relaxed Jaccard threshold (0.40).
+                # 0.40 catches corporate-action stories with different headlines
+                # but the same event, e.g. "Intra Golflink Resorts Bagikan
+                # Dividen Tunai Rp 10,36 Miliar" vs "Emiten Tommy Soeharto (GOLF)
+                # Bagi Dividen 20% dari Laba".
                 # Only applies to GN articles (detected_ticker is set); RSS
                 # articles without a known ticker skip this check.
                 _art_ticker  = art.get("detected_ticker")
@@ -875,7 +879,7 @@ async def run_once(
                         if (
                             _db_ticker == _art_ticker
                             and _db_date == _art_pub_day
-                            and _jaccard(_art_words, _db_words) >= 0.50
+                            and _jaccard(_art_words, _db_words) >= 0.40
                         ):
                             _same_story = True
                             break

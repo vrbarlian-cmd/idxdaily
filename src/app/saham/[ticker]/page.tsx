@@ -205,7 +205,7 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
   });
 
   const recentNews = sortMentions(recentRaw)
-    .filter(m => !sentimentFilter || m.matchType === 'macro_impact'
+    .filter(m => !sentimentFilter
       || (m.sentiment ?? m.article.sentiment) === sentimentFilter)
     .map(mapMention);
 

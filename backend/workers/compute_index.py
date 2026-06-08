@@ -186,6 +186,20 @@ async def fetch_foreign_flow(conn, days: int = 90, as_of: date | None = None) ->
             for r in rows if r["net_idr_billions"] is not None]
 
 
+async def fetch_domestic_flow(conn, days: int = 90, as_of: date | None = None) -> list[dict]:
+    """Returns N days of domestic net flow (buy-sell) ending at `as_of` (or today),
+    sorted date asc. Mirrors fetch_foreign_flow."""
+    anchor = as_of or datetime.now(timezone.utc).date()
+    cutoff = anchor - timedelta(days=days)
+    rows = await conn.fetch(
+        "SELECT date, buy_value_bn - sell_value_bn AS net "
+        "FROM domestic_flow_daily WHERE date >= $1 AND date <= $2 ORDER BY date ASC",
+        cutoff, anchor,
+    )
+    return [{"date": r["date"], "net": float(r["net"])}
+            for r in rows if r["net"] is not None]
+
+
 async def fetch_market_breadth(conn, days: int = 90, as_of: date | None = None) -> list[dict]:
     """Returns N days of market breadth ending at `as_of` (or today), sorted date asc.
     Returns [] if the table doesn't exist yet (graceful for fresh environments)."""
@@ -251,7 +265,7 @@ def compute_ihsg_momentum(bars: list[dict]) -> Component:
 
     if len(closes) < MA_WIN + 5:
         return make_unavailable(
-            "ihsg_momentum", "IHSG Momentum", 0.20,
+            "ihsg_momentum", "IHSG Momentum", 0.15,
             f"Perlu ≥{MA_WIN + 5} hari data IHSG"
         )
 
@@ -266,7 +280,7 @@ def compute_ihsg_momentum(bars: list[dict]) -> Component:
     sign    = "+" if current >= 0 else ""
 
     return {
-        "id": "ihsg_momentum", "label": "IHSG Momentum", "weight": 0.20,
+        "id": "ihsg_momentum", "label": "IHSG Momentum", "weight": 0.15,
         "score": round(score, 1), "status": "active",
         "raw": current,
         "raw_label": f"IHSG {sign}{current * 100:.2f}% vs MA{MA_WIN}",
@@ -281,7 +295,7 @@ def compute_ihsg_volatility(bars: list[dict]) -> Component:
 
     if len(closes) < MIN_BARS:
         return make_unavailable(
-            "ihsg_volatility", "Volatilitas IHSG", 0.15,
+            "ihsg_volatility", "Volatilitas IHSG", 0.10,
             f"Perlu ≥{MIN_BARS} hari data"
         )
 
@@ -297,7 +311,7 @@ def compute_ihsg_volatility(bars: list[dict]) -> Component:
     score   = 100.0 - percentile_rank(current, history)  # inverted
 
     return {
-        "id": "ihsg_volatility", "label": "Volatilitas IHSG", "weight": 0.15,
+        "id": "ihsg_volatility", "label": "Volatilitas IHSG", "weight": 0.10,
         "score": round(score, 1), "status": "active",
         "raw": current,
         "raw_label": f"Vol {current * 100:.1f}% (ann.)",
@@ -311,7 +325,7 @@ def compute_rupiah_stress(bars: list[dict]) -> Component:
 
     if len(closes) < MA_WIN + 1:
         return make_unavailable(
-            "rupiah_stress", "Tekanan Rupiah", 0.15,
+            "rupiah_stress", "Tekanan Rupiah", 0.10,
             f"Perlu ≥{MA_WIN + 1} hari data USD/IDR"
         )
 
@@ -328,7 +342,7 @@ def compute_rupiah_stress(bars: list[dict]) -> Component:
     status  = "active" if len(history) >= 30 else "stale"
 
     return {
-        "id": "rupiah_stress", "label": "Tekanan Rupiah", "weight": 0.15,
+        "id": "rupiah_stress", "label": "Tekanan Rupiah", "weight": 0.10,
         "score": round(score, 1), "status": status,
         "raw": closes[-1],
         "raw_label": (
@@ -459,7 +473,7 @@ def compute_foreign_flow(flow_rows: list[dict]) -> Component:
             if n == 0
             else f"Baru {n} hari data — butuh min {MIN_ROWS} untuk aktif"
         )
-        return make_unavailable("foreign_flow", "Aliran Asing", 0.20, note)
+        return make_unavailable("foreign_flow", "Aliran Asing", 0.15, note)
 
     # Compute rolling sum at each position
     nets = [r["net"] for r in flow_rows]
@@ -476,7 +490,51 @@ def compute_foreign_flow(flow_rows: list[dict]) -> Component:
     sign  = "+" if current >= 0 else ""
 
     return {
-        "id": "foreign_flow", "label": "Aliran Asing", "weight": 0.20,
+        "id": "foreign_flow", "label": "Aliran Asing", "weight": 0.15,
+        "score": round(score, 1), "status": "active",
+        "raw": current,
+        "raw_label": (
+            f"5d net {sign}{current:.0f} Rp miliar "
+            f"(p{score:.0f}, {len(flow_rows)} hari data)"
+        ),
+        "note": None,
+    }
+
+
+def compute_domestic_flow(flow_rows: list[dict]) -> Component:
+    """
+    Domestic (retail) net flow — buy minus sell, entered via set_domestic_flow.py.
+
+    Mirrors compute_foreign_flow: 5-day rolling sum percentile-ranked vs history.
+    High domestic net BUY = retail confident = Greed (high score).
+    High domestic net SELL = retail capitulating = Fear (low score).
+    Lower activation threshold (7 rows) — the signal is clear even with few points.
+    """
+    ROLL_WIN = 5
+    MIN_ROWS = 7
+
+    if len(flow_rows) < MIN_ROWS:
+        n = len(flow_rows)
+        note = (
+            "Diperbarui manual setiap hari via set_domestic_flow.py."
+            if n == 0
+            else f"Baru {n} hari data — butuh min {MIN_ROWS} untuk aktif"
+        )
+        return make_unavailable("domestic_flow", "Aliran Domestik", 0.20, note)
+
+    nets = [r["net"] for r in flow_rows]
+    roll_sums = []
+    for i in range(len(nets)):
+        window = nets[max(0, i - ROLL_WIN + 1): i + 1]
+        roll_sums.append(sum(window))
+
+    current = roll_sums[-1]
+    history = roll_sums[:-1]
+    score   = percentile_rank(current, history) if history else 50.0
+    sign    = "+" if current >= 0 else ""
+
+    return {
+        "id": "domestic_flow", "label": "Aliran Domestik", "weight": 0.20,
         "score": round(score, 1), "status": "active",
         "raw": current,
         "raw_label": (
@@ -590,6 +648,7 @@ async def run(days: int, as_of: date | None = None, quiet: bool = False,
         article_rows_nd  = await fetch_all_articles(conn, days=days, as_of_ts=as_of_ts)
         stock_prices     = await fetch_stock_daily(conn, days=35)
         flow_rows        = await fetch_foreign_flow(conn, days=90, as_of=as_of)
+        domestic_rows    = await fetch_domestic_flow(conn, days=90, as_of=as_of)
         breadth_rows     = await fetch_market_breadth(conn, days=90, as_of=as_of)
         prev_smoothed    = await fetch_previous_smoothed(conn, before_date=as_of)
 
@@ -597,6 +656,7 @@ async def run(days: int, as_of: date | None = None, quiet: bool = False,
             compute_ihsg_momentum(ihsg_bars),
             compute_ihsg_volatility(ihsg_bars),
             compute_foreign_flow(flow_rows),
+            compute_domestic_flow(domestic_rows),
             compute_rupiah_stress(usdidr_bars),
             compute_headline_sentiment(article_rows_48h, now_ts=as_of_ts),
             compute_breadth(breadth_rows),
@@ -637,7 +697,7 @@ async def run(days: int, as_of: date | None = None, quiet: bool = False,
             rs = f"{raw_score:.1f}" if raw_score is not None else "N/A"
             sm = f"{smoothed_score:.1f}" if smoothed_score is not None else "N/A"
             print(f"  {d}  raw={rs:>5}  smoothed={sm:>5}  "
-                  f"{active_cnt}/6 comps  {display_label}")
+                  f"{active_cnt}/7 comps  {display_label}")
             return smoothed_score
 
         # ── Print full report ──────────────────────────────────────────────
@@ -647,7 +707,7 @@ async def run(days: int, as_of: date | None = None, quiet: bool = False,
         print(f"  Raw score      : {raw_score if raw_score is not None else 'N/A'} / 100")
         print(f"  Smoothed score : {smoothed_score if smoothed_score is not None else 'N/A'} / 100  (EMA a={EMA_ALPHA})")
         print(f"  Label          : {display_label}")
-        print(f"  Active comps   : {active_cnt}/6")
+        print(f"  Active comps   : {active_cnt}/7")
         print()
 
         for c in components:
@@ -664,6 +724,7 @@ async def run(days: int, as_of: date | None = None, quiet: bool = False,
         print(f"  Articles ({days:2d}d)  : {len(article_rows_nd)}")
         print(f"  LQ45 stocks    : {len(stock_prices)}")
         print(f"  Foreign flow d : {len(flow_rows)}")
+        print(f"  Domestic flow d: {len(domestic_rows)}")
         print(f"  Breadth days   : {len(breadth_rows)}")
         print(f"{'='*64}\n")
 

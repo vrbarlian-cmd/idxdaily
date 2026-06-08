@@ -300,13 +300,45 @@ async function computeHeadlineSentiment(): Promise<ComponentResult> {
 
 /**
  * Component 6 — Market Breadth (weight 10%)
- * Deprioritized — will be enabled once the 5-component index is stable.
+ * % of stocks advancing (advance/total), manually entered daily via
+ * set_market_breadth.py. Percentile-ranked vs 90-day history.
+ * High breadth (broad advance) = Greed; low (broad decline) = Fear.
+ * Requires ≥30 rows to activate — mirrors backend/workers/compute_index.py.
  */
 async function computeMarketBreadth(): Promise<ComponentResult> {
+  const MIN_ROWS = 30;
+  const cutoff90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+  const rows = await prisma.$queryRaw<Array<{ breadth_pct: number | null }>>`
+    SELECT breadth_pct
+    FROM market_breadth_daily
+    WHERE date >= ${cutoff90} AND breadth_pct IS NOT NULL
+    ORDER BY date ASC
+  `;
+
+  if (rows.length < MIN_ROWS) {
+    const n = rows.length;
+    return {
+      id: 'breadth', label: 'Market Breadth', weight: 0.10,
+      score: null, status: 'unavailable', raw: null, rawLabel: null,
+      note: n === 0
+        ? 'Diperbarui manual setiap hari via set_market_breadth.py.'
+        : `Baru ${n} hari data — butuh min ${MIN_ROWS} untuk aktif`,
+    };
+  }
+
+  const pcts    = rows.map(r => r.breadth_pct as number);
+  const current = pcts.at(-1)!;          // most recent day
+  const history = pcts.slice(0, -1);     // exclude today (matches Python)
+  const score   = percentileRank(current, history);
+
   return {
     id: 'breadth', label: 'Market Breadth', weight: 0.10,
-    score: null, status: 'unavailable', raw: null, rawLabel: null,
-    note: 'Market breadth — segera hadir',
+    score:    round1(score),
+    status:   'active',
+    raw:      round1(current),
+    rawLabel: `${current.toFixed(0)}% saham menguat (p${score.toFixed(0)}, ${rows.length} hari data)`,
+    note:     null,
   };
 }
 

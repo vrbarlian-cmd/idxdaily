@@ -14,14 +14,15 @@ Breadth feeds the Market Breadth component (10%) of the Fear & Greed index.
 High breadth (many stocks advancing) = Greed; low breadth = Fear.
 Run compute_index afterwards (or rely on set_foreign_flow's auto-run).
 """
-import argparse, asyncio, asyncpg, os, re, sys
+import argparse, asyncio, asyncpg, os, re, subprocess, sys
 sys.stdout.reconfigure(encoding="utf-8")
 from datetime import date, datetime, timezone, timedelta
 from pathlib import Path
 from dotenv import load_dotenv
 
-load_dotenv(Path(".env"))
-load_dotenv(Path(".env.local"), override=True)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(PROJECT_ROOT / ".env")
+load_dotenv(PROJECT_ROOT / ".env.local", override=True)
 
 WIB = timezone(timedelta(hours=7))
 
@@ -104,6 +105,21 @@ async def main():
         print()
     finally:
         await conn.close()
+
+    # Trigger compute_index so the F&G score reflects the new breadth reading
+    print("Memulai compute_index (F&G score)...")
+    result = subprocess.run(
+        [sys.executable, "-m", "backend.workers.compute_index"],
+        cwd=str(PROJECT_ROOT),
+        capture_output=True, text=True, encoding="utf-8", errors="replace",
+    )
+    if result.stdout:
+        print(result.stdout.strip())
+    if result.stderr:
+        print(result.stderr.strip())
+    if result.returncode != 0:
+        print(f"\nWARNING: compute_index exited with code {result.returncode}")
+    print("compute_index triggered automatically")
 
 
 asyncio.run(main())

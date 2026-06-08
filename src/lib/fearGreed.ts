@@ -85,7 +85,7 @@ function computeIhsgMomentum(bars: DailyBar[]): ComponentResult {
 
   if (closes.length < MA_WIN + 5) {
     return {
-      id: 'ihsg_momentum', label: 'IHSG Momentum', weight: 0.20,
+      id: 'ihsg_momentum', label: 'IHSG Momentum', weight: 0.15,
       score: null, status: 'unavailable', raw: null, rawLabel: null,
       note: `Perlu ≥${MA_WIN + 5} hari data IHSG`,
     };
@@ -101,7 +101,7 @@ function computeIhsgMomentum(bars: DailyBar[]): ComponentResult {
   const score   = percentileRank(current, history);
 
   return {
-    id: 'ihsg_momentum', label: 'IHSG Momentum', weight: 0.20,
+    id: 'ihsg_momentum', label: 'IHSG Momentum', weight: 0.15,
     score:    round1(score),
     status:   'active',
     raw:      current,
@@ -122,7 +122,7 @@ function computeIhsgVolatility(bars: DailyBar[]): ComponentResult {
 
   if (closes.length < MIN_BARS) {
     return {
-      id: 'ihsg_volatility', label: 'Volatilitas IHSG', weight: 0.15,
+      id: 'ihsg_volatility', label: 'Volatilitas IHSG', weight: 0.10,
       score: null, status: 'unavailable', raw: null, rawLabel: null,
       note: `Perlu ≥${MIN_BARS} hari data`,
     };
@@ -141,7 +141,7 @@ function computeIhsgVolatility(bars: DailyBar[]): ComponentResult {
   const score   = 100 - percentileRank(current, history);
 
   return {
-    id: 'ihsg_volatility', label: 'Volatilitas IHSG', weight: 0.15,
+    id: 'ihsg_volatility', label: 'Volatilitas IHSG', weight: 0.10,
     score:    round1(score),
     status:   'active',
     raw:      current,
@@ -170,7 +170,7 @@ async function computeForeignFlow(): Promise<ComponentResult> {
   if (rows.length < MIN_ROWS) {
     const n = rows.length;
     return {
-      id: 'foreign_flow', label: 'Aliran Asing', weight: 0.20,
+      id: 'foreign_flow', label: 'Aliran Asing', weight: 0.15,
       score: null, status: 'unavailable', raw: null, rawLabel: null,
       note: n === 0
         ? 'Diperbarui manual setiap hari setelah penutupan pasar.'
@@ -193,7 +193,60 @@ async function computeForeignFlow(): Promise<ComponentResult> {
   const sign  = current >= 0 ? '+' : '';
 
   return {
-    id: 'foreign_flow', label: 'Aliran Asing', weight: 0.20,
+    id: 'foreign_flow', label: 'Aliran Asing', weight: 0.15,
+    score:    round1(score),
+    status:   'active',
+    raw:      current,
+    rawLabel: `5d net ${sign}${current.toFixed(0)} Rp miliar (p${score.toFixed(0)}, ${rows.length} hari data)`,
+    note:     null,
+  };
+}
+
+
+/**
+ * Component 4 — Domestic (retail) Net Flow (weight 20%)
+ * buy - sell from domestic_flow_daily, entered via set_domestic_flow.py.
+ * 5-day rolling sum percentile-ranked vs history. Mirrors foreign flow.
+ * High net buy = retail confident = Greed; high net sell = Fear.
+ * Activates at ≥7 rows (lower threshold — signal is clear with few points).
+ */
+async function computeDomesticFlow(): Promise<ComponentResult> {
+  const ROLL_WIN = 5;
+  const MIN_ROWS = 7;
+  const cutoff90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+
+  const rows = await prisma.$queryRaw<Array<{ net: number | null }>>`
+    SELECT buy_value_bn - sell_value_bn AS net
+    FROM domestic_flow_daily
+    WHERE date >= ${cutoff90}
+      AND buy_value_bn IS NOT NULL AND sell_value_bn IS NOT NULL
+    ORDER BY date ASC
+  `;
+
+  if (rows.length < MIN_ROWS) {
+    const n = rows.length;
+    return {
+      id: 'domestic_flow', label: 'Aliran Domestik', weight: 0.20,
+      score: null, status: 'unavailable', raw: null, rawLabel: null,
+      note: n === 0
+        ? 'Diperbarui manual setiap hari via set_domestic_flow.py.'
+        : `Baru ${n} hari data — butuh min ${MIN_ROWS} untuk aktif`,
+    };
+  }
+
+  const nets = rows.map(r => r.net as number);
+  const rollSums = nets.map((_, i) => {
+    const win = nets.slice(Math.max(0, i - ROLL_WIN + 1), i + 1);
+    return win.reduce((a: number, b: number) => a + b, 0);
+  });
+
+  const current = rollSums.at(-1)!;
+  const history = rollSums.slice(0, -1);
+  const score = history.length > 0 ? percentileRank(current, history) : 50;
+  const sign  = current >= 0 ? '+' : '';
+
+  return {
+    id: 'domestic_flow', label: 'Aliran Domestik', weight: 0.20,
     score:    round1(score),
     status:   'active',
     raw:      current,
@@ -213,7 +266,7 @@ function computeRupiahStress(bars: DailyBar[]): ComponentResult {
 
   if (closes.length < MA_WIN + 1) {
     return {
-      id: 'rupiah_stress', label: 'Tekanan Rupiah', weight: 0.15,
+      id: 'rupiah_stress', label: 'Tekanan Rupiah', weight: 0.10,
       score: null, status: 'unavailable', raw: null, rawLabel: null,
       note: `Perlu ≥${MA_WIN + 1} hari data USD/IDR`,
     };
@@ -231,7 +284,7 @@ function computeRupiahStress(bars: DailyBar[]): ComponentResult {
   const lastClose = closes.at(-1)!;
 
   return {
-    id: 'rupiah_stress', label: 'Tekanan Rupiah', weight: 0.15,
+    id: 'rupiah_stress', label: 'Tekanan Rupiah', weight: 0.10,
     score:    round1(score),
     status:   history.length >= 30 ? 'active' : 'stale',
     raw:      lastClose,
@@ -380,7 +433,7 @@ export async function computeFearGreed(days = 7): Promise<FearGreedData> {
   });
 
   // Fetch all data sources in parallel
-  const [ihsgRes, usdIdrRes, articleRes, headlineRes, foreignRes, breadthRes] =
+  const [ihsgRes, usdIdrRes, articleRes, headlineRes, foreignRes, domesticRes, breadthRes] =
     await Promise.allSettled([
       fetchIhsgHistory(),
       fetchUsdIdrHistory(),
@@ -390,6 +443,7 @@ export async function computeFearGreed(days = 7): Promise<FearGreedData> {
       }),
       computeHeadlineSentiment(),
       computeForeignFlow(),
+      computeDomesticFlow(),
       computeMarketBreadth(),
     ]);
 
@@ -399,7 +453,9 @@ export async function computeFearGreed(days = 7): Promise<FearGreedData> {
   const headline   = headlineRes.status === 'fulfilled' ? headlineRes.value
     : unavailable('headline_sentiment', 'Sentimen Headline', 0.20, 'Gagal mengambil data artikel');
   const foreignFlow = foreignRes.status === 'fulfilled' ? foreignRes.value
-    : unavailable('foreign_flow', 'Aliran Asing', 0.20, 'Gagal membaca data aliran asing');
+    : unavailable('foreign_flow', 'Aliran Asing', 0.15, 'Gagal membaca data aliran asing');
+  const domesticFlow = domesticRes.status === 'fulfilled' ? domesticRes.value
+    : unavailable('domestic_flow', 'Aliran Domestik', 0.20, 'Gagal membaca data aliran domestik');
   const breadth     = breadthRes.status === 'fulfilled' ? breadthRes.value
     : unavailable('breadth', 'Market Breadth', 0.10, 'Gagal membaca data LQ45 — jalankan sync_breadth.py');
 
@@ -413,14 +469,15 @@ export async function computeFearGreed(days = 7): Promise<FearGreedData> {
   const components: ComponentResult[] = [
     ihsgBars
       ? computeIhsgMomentum(ihsgBars)
-      : unavailable('ihsg_momentum', 'IHSG Momentum', 0.20, 'Gagal mengambil data IHSG dari Yahoo Finance'),
+      : unavailable('ihsg_momentum', 'IHSG Momentum', 0.15, 'Gagal mengambil data IHSG dari Yahoo Finance'),
     ihsgBars
       ? computeIhsgVolatility(ihsgBars)
-      : unavailable('ihsg_volatility', 'Volatilitas IHSG', 0.15, 'Gagal mengambil data IHSG dari Yahoo Finance'),
+      : unavailable('ihsg_volatility', 'Volatilitas IHSG', 0.10, 'Gagal mengambil data IHSG dari Yahoo Finance'),
     foreignFlow,
+    domesticFlow,
     usdIdrBars
       ? computeRupiahStress(usdIdrBars)
-      : unavailable('rupiah_stress', 'Tekanan Rupiah', 0.15, 'Gagal mengambil data USD/IDR dari Yahoo Finance'),
+      : unavailable('rupiah_stress', 'Tekanan Rupiah', 0.10, 'Gagal mengambil data USD/IDR dari Yahoo Finance'),
     headline,
     breadth,
   ];

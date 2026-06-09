@@ -65,10 +65,11 @@ ALWAYS_INSERT_KEYWORDS: tuple[str, ...] = (
 
 FEEDS = [
     # ── Indonesian domestic sources ───────────────────────────────────────────
-    {"name": "Detik Finance",  "url": "https://finance.detik.com/rss"},
-    {"name": "CNBC Indonesia", "url": "https://www.cnbcindonesia.com/market/rss"},
-    {"name": "Kontan",         "url": "https://investasi.kontan.co.id/rss"},
-    {"name": "Katadata",       "url": "https://katadata.co.id/rss"},
+    {"name": "Detik Finance",     "url": "https://finance.detik.com/rss"},
+    {"name": "CNBC Indonesia",    "url": "https://www.cnbcindonesia.com/market/rss"},
+    {"name": "Kontan",            "url": "https://investasi.kontan.co.id/rss"},
+    {"name": "Katadata",          "url": "https://katadata.co.id/rss"},
+    {"name": "Bloomberg Technoz", "url": "https://www.bloombergtechnoz.com/rss/market", "max_items": 20},
     # ── Global macro sources (lower item cap — high-volume feeds) ─────────────
     # Articles pass is_macro_relevant() via English global keywords and are
     # stored with ticker_id=NULL for macro-impact enrichment.

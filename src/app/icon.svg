@@ -1,13 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96">
   <!-- Dark rounded background -->
-  <rect width="96" height="96" rx="20" fill="#0f172a"/>
-  <!-- Candle 1 — bullish teal (left) -->
-  <line x1="32" y1="12" x2="32" y2="80" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/>
-  <rect x="26" y="28" width="12" height="36" rx="2" fill="#0d9488"/>
-  <!-- Candle 2 — bearish red (centre) -->
-  <line x1="50" y1="18" x2="50" y2="84" stroke="#f43f5e" stroke-width="2.5" stroke-linecap="round"/>
-  <rect x="44" y="36" width="12" height="34" rx="2" fill="#f43f5e"/>
-  <!-- Candle 3 — bullish teal (right) -->
-  <line x1="68" y1="16" x2="68" y2="76" stroke="#0d9488" stroke-width="2.5" stroke-linecap="round"/>
-  <rect x="62" y="24" width="12" height="30" rx="2" fill="#0d9488"/>
+  <rect width="96" height="96" rx="20" fill="#1A2332"/>
+  <!-- Green candle (left) -->
+  <line x1="32" y1="20" x2="32" y2="34" stroke="#1D9E75" stroke-width="5" stroke-linecap="round"/>
+  <line x1="32" y1="62" x2="32" y2="76" stroke="#1D9E75" stroke-width="5" stroke-linecap="round"/>
+  <rect x="25" y="34" width="14" height="28" rx="3" fill="#1D9E75"/>
+  <!-- Red candle (centre) -->
+  <line x1="48" y1="10" x2="48" y2="22" stroke="#E24B4A" stroke-width="5" stroke-linecap="round"/>
+  <line x1="48" y1="62" x2="48" y2="74" stroke="#E24B4A" stroke-width="5" stroke-linecap="round"/>
+  <rect x="41" y="22" width="14" height="40" rx="3" fill="#E24B4A"/>
+  <!-- Green candle (right) -->
+  <line x1="64" y1="16" x2="64" y2="30" stroke="#1D9E75" stroke-width="5" stroke-linecap="round"/>
+  <line x1="64" y1="58" x2="64" y2="72" stroke="#1D9E75" stroke-width="5" stroke-linecap="round"/>
+  <rect x="57" y="30" width="14" height="28" rx="3" fill="#1D9E75"/>
 </svg>

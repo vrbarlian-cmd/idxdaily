@@ -8,9 +8,9 @@ import { fetchMarketSnapshot } from '@/lib/marketData';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
 export const metadata: Metadata = {
-  title: 'SahamDaily — Berita & sentimen pasar saham Indonesia, dirangkum AI',
-  description: 'Agregator berita saham IDX dengan analisis sentimen AI real-time. Fear & Greed index, berita makro, dan sinyal pasar terkini.',
-  keywords: 'saham IDX, berita saham, sentimen, AI, Indonesia, IHSG, SahamDaily',
+  title: 'DailyIHSG - Berita & Sentimen Pasar Indonesia',
+  description: 'DailyIHSG: Agregator berita saham Indonesia dengan Fear & Greed Index, analisis AI, dan sentimen pasar real-time.',
+  keywords: 'saham IDX, berita saham, sentimen, AI, Indonesia, IHSG, DailyIHSG',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

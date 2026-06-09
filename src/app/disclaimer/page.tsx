@@ -1,8 +1,8 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Disclaimer - SahamDaily',
-  description: 'Disclaimer SahamDaily: informasi di situs ini bukan saran investasi.',
+  title: 'Disclaimer - DailyIHSG',
+  description: 'Disclaimer DailyIHSG: informasi di situs ini bukan saran investasi.',
 };
 
 export default function DisclaimerPage() {
@@ -17,14 +17,14 @@ export default function DisclaimerPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base text-[#0f172a]">Bukan Saran Investasi</h2>
             <p>
-              Seluruh konten yang tersedia di SahamDaily - termasuk berita, ringkasan AI, indeks
+              Seluruh konten yang tersedia di DailyIHSG - termasuk berita, ringkasan AI, indeks
               Fear &amp; Greed, skor sentimen, dan analisis data pasar - bersifat <strong>informatif
               dan edukatif semata</strong>. Konten ini <strong>bukan</strong> merupakan saran
               investasi, rekomendasi beli atau jual efek, atau nasihat keuangan dalam bentuk
               apapun.
             </p>
             <p>
-              SahamDaily bukan perusahaan efek, manajer investasi, atau penasihat keuangan yang
+              DailyIHSG bukan perusahaan efek, manajer investasi, atau penasihat keuangan yang
               terdaftar di Otoritas Jasa Keuangan (OJK). Kami tidak memiliki izin untuk memberikan
               rekomendasi investasi.
             </p>
@@ -43,10 +43,10 @@ export default function DisclaimerPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base text-[#0f172a]">Akurasi Data</h2>
             <p>
-              SahamDaily mengambil data dari sumber pihak ketiga (media berita, platform data pasar,
+              DailyIHSG mengambil data dari sumber pihak ketiga (media berita, platform data pasar,
               dan feed publik). Kami berupaya menampilkan informasi yang akurat dan terkini, namun
               tidak dapat menjamin keakuratan, kelengkapan, atau ketepatan waktu data tersebut.
-              Jangan gunakan data dari SahamDaily sebagai satu-satunya sumber untuk keputusan
+              Jangan gunakan data dari DailyIHSG sebagai satu-satunya sumber untuk keputusan
               keuangan.
             </p>
           </section>
@@ -65,7 +65,7 @@ export default function DisclaimerPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base text-[#0f172a]">Perubahan Konten</h2>
             <p>
-              SahamDaily berhak mengubah, memperbarui, atau menghapus konten kapan saja tanpa
+              DailyIHSG berhak mengubah, memperbarui, atau menghapus konten kapan saja tanpa
               pemberitahuan sebelumnya. Disclaimer ini dapat diperbarui sewaktu-waktu.
               Penggunaan situs ini setelah perubahan disclaimer berarti Anda menyetujui
               versi terbaru.
@@ -75,21 +75,21 @@ export default function DisclaimerPage() {
           <section className="space-y-2">
             <h2 className="font-semibold text-base text-[#0f172a]">Hak Cipta &amp; Konten Pihak Ketiga</h2>
             <p>
-              SahamDaily menampilkan ringkasan singkat (2 kalimat) dari artikel berita keuangan
+              DailyIHSG menampilkan ringkasan singkat (2 kalimat) dari artikel berita keuangan
               dengan tautan langsung ke sumber asli. Kami tidak mereproduksi artikel secara penuh
               dan selalu mencantumkan nama sumber serta tautan &ldquo;Baca &rarr;&rdquo; ke artikel
               original.
             </p>
             <p>
               Jika Anda adalah pemilik konten dan keberatan dengan tampilan ringkasan artikel Anda
-              di SahamDaily, silakan hubungi kami di{' '}
+              di DailyIHSG, silakan hubungi kami di{' '}
               <a href="mailto:vrbarlian@gmail.com" className="underline text-stone-500">
                 vrbarlian@gmail.com
               </a>{' '}
               dan kami akan segera menindaklanjuti dalam 1x24 jam.
             </p>
             <p>
-              SahamDaily tidak berafiliasi dengan sumber berita manapun yang ditampilkan di platform
+              DailyIHSG tidak berafiliasi dengan sumber berita manapun yang ditampilkan di platform
               ini.
             </p>
           </section>

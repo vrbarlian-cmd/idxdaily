@@ -20,14 +20,18 @@ function ScoreBadge({ value }: { value: number | null }) {
 // ── Single row ────────────────────────────────────────────────────────────────
 
 function HistRow({ period, entry }: { period: string; entry: HistoricalEntry }) {
-  const { text } = zoneColors(entry.value);
+  // Derive BOTH the text colour and the label from the same zoneColors(value)
+  // call so the circle and the label can never disagree. (The stored entry.label
+  // is computed from raw_score upstream and can land in a different zone than the
+  // displayed smoothed value near a boundary — e.g. 26.4 stored "Extreme Fear".)
+  const { text, label } = zoneColors(entry.value);
 
   return (
     <div className="flex items-center justify-between py-3.5">
       <div>
         <p className="text-sm font-medium text-stone-700">{period}</p>
         <p className={`text-sm ${entry.value != null ? text : 'text-stone-400'}`}>
-          {entry.value != null ? entry.label : '—'}
+          {entry.value != null ? label : '—'}
         </p>
       </div>
       <ScoreBadge value={entry.value} />

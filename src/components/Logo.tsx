@@ -52,10 +52,26 @@ export default function Logo({ height = 36, iconOnly = false }: LogoProps) {
   return (
     <span className="inline-flex items-center gap-2.5 select-none">
       {Candles}
-      {/* Wordmark — HTML so it inherits site Inter font */}
-      <span className="tracking-tight leading-none" style={{ fontSize, letterSpacing: '-0.5px' }}>
-        <span style={{ color: DARK,  fontWeight: 700 }}>Daily</span>
-        <span style={{ color: GREEN, fontWeight: 300 }}>IHSG</span>
+      {/* Wordmark + tagline, stacked */}
+      <span className="flex flex-col">
+        {/* Wordmark — HTML so it inherits site Inter font */}
+        <span className="tracking-tight leading-none" style={{ fontSize, letterSpacing: '-0.5px' }}>
+          <span style={{ color: DARK,  fontWeight: 700 }}>Daily</span>
+          <span style={{ color: GREEN, fontWeight: 300 }}>IHSG</span>
+        </span>
+        {/* Tagline — hidden on mobile to keep the header compact */}
+        <span
+          className="hidden sm:block uppercase"
+          style={{
+            fontSize: '10px',
+            color: '#6B7280',
+            letterSpacing: '1.5px',
+            lineHeight: 1,
+            marginTop: '2px',
+          }}
+        >
+          Berita &amp; Sentimen Pasar Indonesia
+        </span>
       </span>
     </span>
   );

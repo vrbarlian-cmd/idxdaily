@@ -1,14 +1,26 @@
 import { Clock } from 'lucide-react';
 import type { HistoricalValues, HistoricalEntry } from '@/lib/fearGreed';
-import { zoneColors } from '@/lib/zoneColors';
+
+// ── Zone color + label ──────────────────────────────────────────────────────
+// Single source: the SAME hex drives both the badge circle and the label text,
+// and the label words use the same thresholds — so they can never disagree.
+function zone(score: number | null): { color: string; label: string } {
+  if (score == null) return { color: '#A8A29E', label: '—'             };
+  if (score >= 75)   return { color: '#059669', label: 'Extreme Greed' };  // dark green
+  if (score >= 60)   return { color: '#10B981', label: 'Greed'         };  // green
+  if (score >= 45)   return { color: '#F59E0B', label: 'Neutral'       };  // yellow
+  if (score >= 30)   return { color: '#F97316', label: 'Fear'          };  // orange
+  return                    { color: '#E24B4A', label: 'Extreme Fear'  };  // red
+}
 
 // ── Score badge ───────────────────────────────────────────────────────────────
 
 function ScoreBadge({ value }: { value: number | null }) {
-  const { bg } = zoneColors(value);
+  const { color } = zone(value);
   return (
     <div
-      className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ${bg}`}
+      className="w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0"
+      style={{ backgroundColor: color }}
     >
       <span className="text-white text-xs font-bold leading-none">
         {value != null ? Math.round(value) : '—'}
@@ -20,17 +32,14 @@ function ScoreBadge({ value }: { value: number | null }) {
 // ── Single row ────────────────────────────────────────────────────────────────
 
 function HistRow({ period, entry }: { period: string; entry: HistoricalEntry }) {
-  // Derive BOTH the text colour and the label from the same zoneColors(value)
-  // call so the circle and the label can never disagree. (The stored entry.label
-  // is computed from raw_score upstream and can land in a different zone than the
-  // displayed smoothed value near a boundary — e.g. 26.4 stored "Extreme Fear".)
-  const { text, label } = zoneColors(entry.value);
+  // Badge background and label text use the identical zone() color.
+  const { color, label } = zone(entry.value);
 
   return (
     <div className="flex items-center justify-between py-3.5">
       <div>
         <p className="text-sm font-medium text-stone-700">{period}</p>
-        <p className={`text-sm ${entry.value != null ? text : 'text-stone-400'}`}>
+        <p className="text-sm" style={{ color: entry.value != null ? color : '#A8A29E' }}>
           {entry.value != null ? label : '—'}
         </p>
       </div>

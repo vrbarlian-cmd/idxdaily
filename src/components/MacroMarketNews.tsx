@@ -156,11 +156,11 @@ function MacroCard({ a }: { a: Article }) {
         {/* Title + impact score */}
         <div className="flex items-start gap-3">
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-bold text-[#0f172a] leading-snug mb-1.5 line-clamp-2">
+            <p className="text-sm font-bold text-[#0f172a] leading-snug mb-1.5 line-clamp-3 sm:line-clamp-2">
               {decodeHTML(a.title)}
             </p>
             {a.aiSummary && (
-              <p className="text-xs text-[#4b5563] leading-relaxed line-clamp-2">
+              <p className="text-xs text-[#4b5563] leading-relaxed line-clamp-3 sm:line-clamp-2">
                 {a.aiSummary}
               </p>
             )}

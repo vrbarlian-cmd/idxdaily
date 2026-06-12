@@ -59,15 +59,14 @@ export default function Logo({ height = 36, iconOnly = false }: LogoProps) {
           <span style={{ color: DARK,  fontWeight: 700 }}>Daily</span>
           <span style={{ color: GREEN, fontWeight: 300 }}>IHSG</span>
         </span>
-        {/* Tagline — hidden on mobile to keep the header compact */}
+        {/* Tagline — always visible; smaller on very small screens */}
         <span
-          className="hidden sm:block uppercase"
+          className="block uppercase text-[8px] sm:text-[10px] tracking-widest sm:tracking-[1.5px]"
           style={{
-            fontSize: '10px',
             color: '#6B7280',
-            letterSpacing: '1.5px',
             lineHeight: 1,
             marginTop: '2px',
+            whiteSpace: 'nowrap',
           }}
         >
           Berita &amp; Sentimen Pasar Indonesia

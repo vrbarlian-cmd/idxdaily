@@ -227,8 +227,9 @@ export default function FearGreedGauge({
           />
         )}
         <p
-          className={`text-5xl font-bold leading-none tabular-nums relative ${text}`}
+          className="text-5xl font-bold leading-none tabular-nums relative"
           style={data.score != null ? {
+            color: hex,
             filter: `drop-shadow(0 0 6px ${hex}55)`,
           } : {}}
         >

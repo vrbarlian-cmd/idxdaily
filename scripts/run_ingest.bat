@@ -7,10 +7,13 @@ REM   Market hours (Mon-Fri 09:00-15:59 WIB):
 REM     Full run — Google News (94 tickers, 3s delay) + RSS + HTML + Enrich
 REM     Expected duration: ~6-7 min. Leaves ~8-9 min gap. Very polite.
 REM
-REM   Off-hours / weekends:
+REM   Off-hours (weekdays):
 REM     RSS + HTML + Enrich only (no Google News).
-REM     Runs at most once every 30 minutes (enforced via timestamp file).
-REM     Skips silently if < 30min since last off-hours run.
+REM     Runs at most once every 30 minutes (enforced via .last_offhours_run stamp).
+REM
+REM   Weekends (Sat/Sun):
+REM     RSS + HTML + Enrich only (no Google News).
+REM     Runs at most ONCE PER DAY (enforced via logs\weekend_ingest_YYYYMMDD.stamp).
 
 set PROJECT=C:\Users\Vito\OneDrive\Documents\AI News
 set LOGFILE=%PROJECT%\logs\ingest_scheduler.log
@@ -30,14 +33,33 @@ if %DOW% GEQ 1 if %DOW% LEQ 5 (
 
 if "%MARKET%"=="1" goto :market_run
 
-REM ── OFF-HOURS: skip if < 2h since last off-hours run ──────────────────────
-if exist "%STAMP%" (
+REM ── OFF-HOURS ──────────────────────────────────────────────────────────────
+
+REM Weekend guard: Sat (6) and Sun (0) run at most once per day
+set WEEKEND=0
+if %DOW% EQU 0 set WEEKEND=1
+if %DOW% EQU 6 set WEEKEND=1
+
+if "%WEEKEND%"=="1" (
     powershell -NoProfile -Command ^
-        "$last = (Get-Item '%STAMP%').LastWriteTime; ^
-         $mins = (New-TimeSpan -Start $last -End (Get-Date)).TotalMinutes; ^
-         if ($mins -lt 30) { exit 1 } else { exit 0 }"
+        "$d=(Get-Date).ToString('yyyyMMdd'); $s='logs\weekend_ingest_'+$d+'.stamp'; ^
+         if (Test-Path $s) { exit 1 } else { exit 0 }"
     if %ERRORLEVEL% NEQ 0 (
+        echo [%DATE% %TIME%] Weekend ingest already ran today, skipping. >> "%LOGFILE%"
         exit /b 0
+    )
+)
+
+REM Weekday off-hours: skip if < 30 min since last run
+if "%WEEKEND%"=="0" (
+    if exist "%STAMP%" (
+        powershell -NoProfile -Command ^
+            "$last = (Get-Item '%STAMP%').LastWriteTime; ^
+             $mins = (New-TimeSpan -Start $last -End (Get-Date)).TotalMinutes; ^
+             if ($mins -lt 30) { exit 1 } else { exit 0 }"
+        if %ERRORLEVEL% NEQ 0 (
+            exit /b 0
+        )
     )
 )
 
@@ -50,6 +72,15 @@ if %ERRORLEVEL% neq 0 (
 python -m backend.workers.enrich --drain --batch 100 --drain-timeout 10 >> "%LOGFILE%" 2>&1
 python -m backend.workers.compute_index >> "%LOGFILE%" 2>&1
 echo [%DATE% %TIME%] Off-hours run finished. >> "%LOGFILE%"
+
+REM Write weekend daily stamp after completion
+if "%WEEKEND%"=="1" (
+    powershell -NoProfile -Command ^
+        "$d=(Get-Date).ToString('yyyyMMdd'); ^
+         (Get-Date) | Out-File ('logs\weekend_ingest_'+$d+'.stamp') -Encoding utf8"
+    echo [%DATE% %TIME%] Weekend stamp written - won't run again today. >> "%LOGFILE%"
+)
+
 echo. > "%STAMP%"
 exit /b 0
 

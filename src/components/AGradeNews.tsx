@@ -112,34 +112,34 @@ function ArticleCard({ a }: { a: ArticleData }) {
       <div className="p-4 pl-5">
 
         {/* Meta row */}
-        <div className="flex items-center gap-2 mb-2.5 flex-wrap">
+        <div className="flex items-center justify-between w-full mb-2.5">
 
-          {/* Ticker chip */}
-          {a.ticker && (
-            <Link
-              href={`/saham/${a.ticker.symbol}`}
-              className="font-mono text-[10px] font-bold bg-[#0f172a] hover:bg-[#1e293b] text-white rounded px-1.5 py-0.5 transition-colors flex-shrink-0"
-            >
-              {a.ticker.symbol}
-            </Link>
-          )}
+          {/* Left: ticker + sentiment + AI */}
+          <div className="flex items-center gap-2">
+            {a.ticker && (
+              <Link
+                href={`/saham/${a.ticker.symbol}`}
+                className="font-mono text-[10px] font-bold bg-[#0f172a] hover:bg-[#1e293b] text-white rounded px-1.5 py-0.5 transition-colors flex-shrink-0"
+              >
+                {a.ticker.symbol}
+              </Link>
+            )}
 
-          {/* Sentiment */}
-          <span className={`inline-flex items-center gap-1.5 text-xs font-semibold flex-shrink-0 ${sentimentTextColor(a.sentiment)}`}>
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sentimentDot(a.sentiment)}`} />
-            {sentimentLabel(a.sentiment)}
-          </span>
-
-          {/* AI badge */}
-          {a.aiSummary && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#1a56db] flex-shrink-0">
-              <Sparkles className="w-2.5 h-2.5" />
-              AI
+            <span className={`inline-flex items-center gap-1.5 text-xs font-semibold flex-shrink-0 ${sentimentTextColor(a.sentiment)}`}>
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${sentimentDot(a.sentiment)}`} />
+              {sentimentLabel(a.sentiment)}
             </span>
-          )}
 
-          {/* Source (full width at top, no time competing) */}
-          <span className="text-[11px] text-[#9ca3af]">{a.source}</span>
+            {a.aiSummary && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#1a56db] flex-shrink-0">
+                <Sparkles className="w-2.5 h-2.5" />
+                AI
+              </span>
+            )}
+          </div>
+
+          {/* Right: source name */}
+          <span className="text-[11px] text-[#9ca3af] flex-shrink-0">{a.source}</span>
         </div>
 
         {/* Body */}
@@ -153,7 +153,7 @@ function ArticleCard({ a }: { a: ArticleData }) {
 
             {/* Summary */}
             {a.aiSummary && (
-              <p className="text-xs text-[#4b5563] leading-relaxed mb-2.5 sm:line-clamp-3">
+              <p className="text-xs text-[#4b5563] leading-relaxed mb-2.5">
                 {a.aiSummary}
               </p>
             )}

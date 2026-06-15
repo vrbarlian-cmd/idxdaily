@@ -47,6 +47,17 @@ function impactScoreColor(s: string) {
   return 'text-[#94A3B8]';
 }
 
+const SOURCE_ABBREV: Record<string, string> = {
+  'Bloomberg Markets':   'Bloomberg',
+  'Bloomberg Technoz':   'Technoz',
+  'CNBC International':  'CNBC Intl',
+  'Investing.com':       'Investing',
+  'Emiten News':         'EmitenNews',
+};
+function formatSource(source: string): string {
+  return SOURCE_ABBREV[source] ?? source;
+}
+
 function decodeHTML(str: string): string {
   return str
     .replace(/&amp;/g, '&')
@@ -139,7 +150,7 @@ function ArticleCard({ a }: { a: ArticleData }) {
           )}
 
           {/* Source */}
-          <span className="text-[11px] text-[#9ca3af]">{a.source}</span>
+          <span className="text-[11px] text-[#9ca3af]">{formatSource(a.source)}</span>
 
           {/* Date */}
           <PubDate dateStr={a.publishedAt} />
@@ -156,7 +167,7 @@ function ArticleCard({ a }: { a: ArticleData }) {
 
             {/* Summary */}
             {a.aiSummary && (
-              <p className="text-xs text-[#4b5563] leading-relaxed mb-2.5">
+              <p className="text-xs text-[#4b5563] leading-relaxed mb-2.5 line-clamp-3">
                 {a.aiSummary}
               </p>
             )}

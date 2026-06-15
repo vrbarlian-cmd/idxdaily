@@ -10,6 +10,17 @@ import { dedupArticles } from '@/lib/dedupArticles';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+const SOURCE_ABBREV: Record<string, string> = {
+  'Bloomberg Markets':   'Bloomberg',
+  'Bloomberg Technoz':   'Technoz',
+  'CNBC International':  'CNBC Intl',
+  'Investing.com':       'Investing',
+  'Emiten News':         'EmitenNews',
+};
+function formatSource(source: string): string {
+  return SOURCE_ABBREV[source] ?? source;
+}
+
 function decodeHTML(str: string): string {
   return str
     .replace(/&amp;/g, '&')
@@ -148,7 +159,7 @@ function MacroCard({ a }: { a: Article }) {
 
           {/* Source + date */}
           <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-            <span className="text-[11px] text-[#9ca3af]">{a.source}</span>
+            <span className="text-[11px] text-[#9ca3af]">{formatSource(a.source)}</span>
             <PubDate dateStr={a.publishedAt} />
           </div>
         </div>

@@ -37,6 +37,17 @@ export interface SentimentStyle {
   label:       string;
 }
 
+const SOURCE_ABBREV: Record<string, string> = {
+  'Bloomberg Markets':   'Bloomberg',
+  'Bloomberg Technoz':   'Technoz',
+  'CNBC International':  'CNBC Intl',
+  'Investing.com':       'Investing',
+  'Emiten News':         'EmitenNews',
+};
+function formatSource(source: string): string {
+  return SOURCE_ABBREV[source] ?? source;
+}
+
 function scoreColor(s: string): string {
   if (s === 'BULLISH') return 'text-[#1D9E75]';
   if (s === 'BEARISH') return 'text-[#E24B4A]';
@@ -138,7 +149,7 @@ export default function NewsCard({
 
       {/* AI Summary */}
       {news.aiSummary && (
-        <p className="text-[13px] text-[#374151] leading-[1.6] mb-3">
+        <p className="text-[13px] text-[#374151] leading-[1.6] mb-3 line-clamp-3">
           {news.aiSummary}
         </p>
       )}
@@ -163,7 +174,7 @@ export default function NewsCard({
       {/* Footer */}
       <div className="flex items-center justify-between pt-2 border-t border-[#f0ede8]">
         <span className="text-[11px] text-[#9ca3af]">
-          <span className="font-medium text-[#6b7280]">{news.source}</span>
+          <span className="font-medium text-[#6b7280]">{formatSource(news.source)}</span>
           {' · '}
           {formatDistanceToNow(new Date(news.publishedAt), { addSuffix: true, locale: localeId })}
         </span>

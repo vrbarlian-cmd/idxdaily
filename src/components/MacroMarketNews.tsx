@@ -157,7 +157,7 @@ function MacroCard({ a }: { a: Article }) {
               {decodeHTML(a.title)}
             </p>
             {a.aiSummary && (
-              <p className="text-xs text-[#4b5563] leading-relaxed line-clamp-3 sm:line-clamp-2">
+              <p className="text-xs text-[#4b5563] leading-relaxed sm:line-clamp-2">
                 {a.aiSummary}
               </p>
             )}

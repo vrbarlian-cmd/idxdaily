@@ -141,7 +141,7 @@ export default function NewsCard({
 
       {/* AI Summary */}
       {news.aiSummary && (
-        <p className="text-[13px] text-[#374151] leading-[1.6] mb-3 line-clamp-3">
+        <p className="text-[13px] text-[#374151] leading-[1.6] mb-3 sm:line-clamp-3">
           {news.aiSummary}
         </p>
       )}

@@ -153,7 +153,7 @@ function ArticleCard({ a }: { a: ArticleData }) {
 
             {/* Summary */}
             {a.aiSummary && (
-              <p className="text-xs text-[#4b5563] leading-relaxed mb-2.5 line-clamp-3">
+              <p className="text-xs text-[#4b5563] leading-relaxed mb-2.5 sm:line-clamp-3">
                 {a.aiSummary}
               </p>
             )}

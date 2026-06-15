@@ -240,16 +240,9 @@ export default function FearGreedGauge({
         </span>
       </div>
 
-      {/* Raw vs smoothed */}
-      {data.rawScore != null && data.score != null && Math.abs(data.rawScore - data.score) > 0.5 && (
-        <p className="text-center text-xs text-stone-400 mb-2">
-          Raw {data.rawScore.toFixed(1)} · Smoothed {data.score.toFixed(1)}
-        </p>
-      )}
-
       {/* Footer */}
       <div className="flex justify-between items-center pt-2 border-t border-stone-100">
-        <span className="text-xs text-stone-400">dailyihsg.id</span>
+        <span className="text-xs text-stone-400">dailyihsg.com</span>
         <span className="text-xs text-stone-400">Updated {wib} WIB</span>
       </div>
     </div>

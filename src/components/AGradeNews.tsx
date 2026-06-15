@@ -47,17 +47,6 @@ function impactScoreColor(s: string) {
   return 'text-[#94A3B8]';
 }
 
-const SOURCE_ABBREV: Record<string, string> = {
-  'Bloomberg Markets':   'Bloomberg',
-  'Bloomberg Technoz':   'Technoz',
-  'CNBC International':  'CNBC Intl',
-  'Investing.com':       'Investing',
-  'Emiten News':         'EmitenNews',
-};
-function formatSource(source: string): string {
-  return SOURCE_ABBREV[source] ?? source;
-}
-
 function decodeHTML(str: string): string {
   return str
     .replace(/&amp;/g, '&')
@@ -149,11 +138,8 @@ function ArticleCard({ a }: { a: ArticleData }) {
             </span>
           )}
 
-          {/* Source */}
-          <span className="text-[11px] text-[#9ca3af]">{formatSource(a.source)}</span>
-
-          {/* Date */}
-          <PubDate dateStr={a.publishedAt} />
+          {/* Source (full width at top, no time competing) */}
+          <span className="text-[11px] text-[#9ca3af]">{a.source}</span>
         </div>
 
         {/* Body */}
@@ -173,13 +159,16 @@ function ArticleCard({ a }: { a: ArticleData }) {
             )}
 
             {/* Impact bar */}
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1 bg-[#f0ede8] rounded-full overflow-hidden">
-                <div
-                  className={`h-1 rounded-full ${impactBarColor(a.sentiment)}`}
-                  style={{ width: `${(a.impactScore / 10) * 100}%` }}
-                />
-              </div>
+            <div className="h-1 bg-[#f0ede8] rounded-full overflow-hidden mb-2">
+              <div
+                className={`h-1 rounded-full ${impactBarColor(a.sentiment)}`}
+                style={{ width: `${(a.impactScore / 10) * 100}%` }}
+              />
+            </div>
+
+            {/* Footer: time + Baca → */}
+            <div className="flex items-center justify-between">
+              <PubDate dateStr={a.publishedAt} />
               {a.url && (
                 <a
                   href={a.url}

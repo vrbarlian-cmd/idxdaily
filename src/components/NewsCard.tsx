@@ -37,17 +37,6 @@ export interface SentimentStyle {
   label:       string;
 }
 
-const SOURCE_ABBREV: Record<string, string> = {
-  'Bloomberg Markets':   'Bloomberg',
-  'Bloomberg Technoz':   'Technoz',
-  'CNBC International':  'CNBC Intl',
-  'Investing.com':       'Investing',
-  'Emiten News':         'EmitenNews',
-};
-function formatSource(source: string): string {
-  return SOURCE_ABBREV[source] ?? source;
-}
-
 function scoreColor(s: string): string {
   if (s === 'BULLISH') return 'text-[#1D9E75]';
   if (s === 'BEARISH') return 'text-[#E24B4A]';
@@ -138,8 +127,11 @@ export default function NewsCard({
           </span>
         )}
 
-        {/* Category */}
-        <span className="text-[10px] text-[#9ca3af] ml-auto">{news.category}</span>
+        {/* Source (top-right, full width available) */}
+        <div className="ml-auto flex items-center gap-1.5 min-w-0">
+          <span className="font-medium text-[11px] text-[#6b7280] truncate">{news.source}</span>
+          {news.category && <span className="text-[10px] text-[#9ca3af] flex-shrink-0">· {news.category}</span>}
+        </div>
       </div>
 
       {/* Title */}
@@ -171,11 +163,9 @@ export default function NewsCard({
         </div>
       </div>
 
-      {/* Footer */}
+      {/* Footer: time + Baca → */}
       <div className="flex items-center justify-between pt-2 border-t border-[#f0ede8]">
         <span className="text-[11px] text-[#9ca3af]">
-          <span className="font-medium text-[#6b7280]">{formatSource(news.source)}</span>
-          {' · '}
           {formatDistanceToNow(new Date(news.publishedAt), { addSuffix: true, locale: localeId })}
         </span>
         {news.url && (

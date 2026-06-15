@@ -10,17 +10,6 @@ import { dedupArticles } from '@/lib/dedupArticles';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const SOURCE_ABBREV: Record<string, string> = {
-  'Bloomberg Markets':   'Bloomberg',
-  'Bloomberg Technoz':   'Technoz',
-  'CNBC International':  'CNBC Intl',
-  'Investing.com':       'Investing',
-  'Emiten News':         'EmitenNews',
-};
-function formatSource(source: string): string {
-  return SOURCE_ABBREV[source] ?? source;
-}
-
 function decodeHTML(str: string): string {
   return str
     .replace(/&amp;/g, '&')
@@ -157,11 +146,8 @@ function MacroCard({ a }: { a: Article }) {
             </Link>
           )}
 
-          {/* Source + date */}
-          <div className="ml-auto flex items-center gap-2 flex-shrink-0">
-            <span className="text-[11px] text-[#9ca3af]">{formatSource(a.source)}</span>
-            <PubDate dateStr={a.publishedAt} />
-          </div>
+          {/* Source (full width at top-right, no time competing) */}
+          <span className="ml-auto text-[11px] text-[#9ca3af] flex-shrink-0">{a.source}</span>
         </div>
 
         {/* Title + impact score */}
@@ -183,17 +169,22 @@ function MacroCard({ a }: { a: Article }) {
               {a.impactScore.toFixed(1)}
             </span>
             <p className="text-[10px] text-[#9ca3af]">/10</p>
-            {a.url && (
-              <a
-                href={a.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="block mt-1 text-[11px] text-[#1a56db] hover:text-blue-700 font-semibold"
-              >
-                Baca →
-              </a>
-            )}
           </div>
+        </div>
+
+        {/* Footer: time + Baca → */}
+        <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#f0ede8]">
+          <PubDate dateStr={a.publishedAt} />
+          {a.url && (
+            <a
+              href={a.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[11px] text-[#1a56db] hover:text-blue-700 font-semibold flex-shrink-0"
+            >
+              Baca →
+            </a>
+          )}
         </div>
       </div>
     </div>

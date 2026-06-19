@@ -136,6 +136,8 @@ TICKER_TAG_ENABLED: set[str] = {
     "IKAN", "IRSX", "PSAB", "BWPT", "ARCI", "UVCR", "FORU", "MUTU",
     "KRAS", "PPRE", "SMIL", "ASHA", "BIPI",
     "FIRE", "KBLV", "NIKL", "ZATA", "KETR", "RGAS",
+    # 2026-06-19 confirmed actively traded (small volume):
+    "LEAD", "MDIA", "MPIX", "PSDN", "TRUE", "WMUU",
 }
 
 # Common words to skip when generating 2-word aliases (too generic to match)

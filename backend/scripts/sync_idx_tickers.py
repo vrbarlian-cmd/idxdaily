@@ -126,12 +126,12 @@ TICKER_TAG_ENABLED: set[str] = {
     "PACK", "PADI", "BNGA", "BKSL", "ELSA",
     "ENRG", "BRMS", "ITMG", "ADMR",
     # 2026-06-19 analytics audit — high-traffic searched tickers:
-    # Inserted (new): CDIA, BLOG, PANJ, SIML
+    # Inserted (new): CDIA, BLOG (PANJ/SIML removed — not real IDX tickers)
     # Enabled (had traction 4+ articles): CENT, EURO, MKPI, TMPO, PIPA,
     #   IKAN, IRSX, PSAB, BWPT, ARCI, UVCR, FORU, MUTU
     # Enabled (low articles but searched): KRAS, PPRE, SMIL, ASHA, BIPI,
     #   FIRE, KBLV, NIKL, ZATA, KETR, RGAS
-    "CDIA", "BLOG", "PANJ", "SIML",
+    "CDIA", "BLOG",
     "CENT", "EURO", "MKPI", "TMPO", "PIPA",
     "IKAN", "IRSX", "PSAB", "BWPT", "ARCI", "UVCR", "FORU", "MUTU",
     "KRAS", "PPRE", "SMIL", "ASHA", "BIPI",

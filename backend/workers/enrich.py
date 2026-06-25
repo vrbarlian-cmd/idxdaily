@@ -159,6 +159,8 @@ def call_gemini_macro_impact(
         existing_clause=existing_clause,
     )
 
+    last_exc: Exception | None = None
+    last_transient = False
     for attempt in range(3):
         try:
             response = client.models.generate_content(
@@ -192,12 +194,19 @@ def call_gemini_macro_impact(
             msg = str(exc)
             is_rate = "429" in msg or "EXHAUSTED" in msg
             is_transient = "503" in msg or "UNAVAILABLE" in msg
+            last_exc = exc
+            last_transient = is_rate or is_transient
             if attempt < 2 and (is_rate or is_transient):
                 wait = (30 * (2 ** attempt)) if is_rate else (10 * (2 ** attempt))
                 print(f"     [macro-retry {attempt+1}] waiting {wait}s ...")
                 time.sleep(wait)
             else:
-                raise
+                break
+    if last_transient and model != FALLBACK_MODEL:
+        print(f"     [macro-fallback] {model} unavailable → {FALLBACK_MODEL}")
+        return call_gemini_macro_impact(api_key, row, existing_symbols, model=FALLBACK_MODEL)
+    assert last_exc is not None
+    raise last_exc
 
 
 async def save_macro_impact_mentions(
@@ -453,7 +462,7 @@ def _get_client(api_key: str):
 #   gemini-2.5-flash-lite: 4000 RPM — no artificial delay needed
 #   gemini-2.5-flash:      2000 RPM — use --model gemini-2.5-flash to opt in
 DEFAULT_MODEL = "gemini-2.5-flash-lite"
-FALLBACK_MODEL = "gemini-2.5-flash-lite"
+FALLBACK_MODEL = "gemini-2.5-flash"  # used when lite returns 503
 
 
 def call_gemini(api_key: str, row: dict, model: str = DEFAULT_MODEL) -> dict:
@@ -478,6 +487,8 @@ def call_gemini(api_key: str, row: dict, model: str = DEFAULT_MODEL) -> dict:
         content_block=content_block,
     )
     # Retry up to 3 times on transient errors (503) or rate limit (429)
+    last_exc: Exception | None = None
+    last_transient = False
     for attempt in range(3):
         try:
             response = client.models.generate_content(
@@ -508,13 +519,20 @@ def call_gemini(api_key: str, row: dict, model: str = DEFAULT_MODEL) -> dict:
             msg = str(exc)
             is_rate = "429" in msg or "EXHAUSTED" in msg
             is_transient = "503" in msg or "UNAVAILABLE" in msg
+            last_exc = exc
+            last_transient = is_rate or is_transient
             if attempt < 2 and (is_rate or is_transient):
                 # Exponential backoff: 30s → 60s → 120s for rate limit; 10s → 20s for 503
                 wait = (30 * (2 ** attempt)) if is_rate else (10 * (2 ** attempt))
                 print(f"     [retry {attempt+1}/{2}] waiting {wait}s ...")
                 time.sleep(wait)
             else:
-                raise
+                break
+    if last_transient and model != FALLBACK_MODEL:
+        print(f"     [fallback] {model} unavailable → {FALLBACK_MODEL}")
+        return call_gemini(api_key, row, model=FALLBACK_MODEL)
+    assert last_exc is not None
+    raise last_exc
 
 
 # ---------------------------------------------------------------------------

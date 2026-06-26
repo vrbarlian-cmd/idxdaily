@@ -65,6 +65,8 @@ del "%LOCK%" 2>nul
 exit /b 0
 
 :check_stamp
+REM Weekday evening cutoff: no ingest after 18:00 WIB (saves Gemini credits)
+if "%WEEKEND%"=="0" if %HOUR% GEQ 18 goto evening_skip
 REM Weekday off-hours: skip if < 30 min since last run
 if not exist "%STAMP%" goto offhours_run
 powershell -NoProfile -Command "$last=(Get-Item '%STAMP%').LastWriteTime; $mins=(New-TimeSpan -Start $last -End (Get-Date)).TotalMinutes; if ($mins -lt 30) { exit 1 } else { exit 0 }"
@@ -72,6 +74,10 @@ if %ERRORLEVEL% NEQ 0 goto stamp_skip
 goto offhours_run
 
 :stamp_skip
+del "%LOCK%" 2>nul
+exit /b 0
+
+:evening_skip
 del "%LOCK%" 2>nul
 exit /b 0
 

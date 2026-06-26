@@ -16,10 +16,24 @@ REM     RSS + HTML + Enrich only (no Google News).
 REM     Runs at most ONCE PER DAY (enforced via logs\weekend_ingest_YYYYMMDD.stamp).
 
 set PROJECT=C:\Users\Vito\OneDrive\Documents\AI News
-set LOGFILE=%PROJECT%\logs\ingest_scheduler.log
-set STAMP=%PROJECT%\logs\.last_offhours_run
+set LOGFILE=C:\ProgramData\IDXDaily\logs\ingest_scheduler.log
+set STAMP=C:\ProgramData\IDXDaily\logs\.last_offhours_run
+set LOCK=C:\ProgramData\IDXDaily\logs\ingest.lock
 
 cd /d "%PROJECT%"
+
+REM ── Concurrency guard (belt-and-suspenders on top of MultipleInstances=IgnoreNew) ──
+if exist "%LOCK%" (
+    powershell -NoProfile -Command ^
+        "$age=(New-TimeSpan -Start (Get-Item '%LOCK%').LastWriteTime -End (Get-Date)).TotalMinutes; ^
+         if ($age -gt 60) { Remove-Item '%LOCK%' -Force; exit 0 } else { exit 1 }"
+    if %ERRORLEVEL% NEQ 0 (
+        echo [%DATE% %TIME%] Lock exists (age<60min), skipping. >> "%LOGFILE%"
+        exit /b 0
+    )
+    echo [%DATE% %TIME%] Removed stale lock (age>60min). >> "%LOGFILE%"
+)
+echo. > "%LOCK%"
 
 REM ── Detect WIB time and day (WIB = UTC+7) ─────────────────────────────────
 for /f %%d in ('powershell -NoProfile -Command "(Get-Date).DayOfWeek.value__"') do set DOW=%%d
@@ -67,7 +81,7 @@ if "%WEEKEND%"=="0" (
 echo [%DATE% %TIME%] Off-hours ingest (RSS+HTML, no Google News)... >> "%LOGFILE%"
 python -m backend.workers.ingest >> "%LOGFILE%" 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Ingest failed with exit code %ERRORLEVEL% — check ingest.lock and ingest.py >> "%LOGFILE%"
+    echo [ERROR] Ingest failed with exit code %ERRORLEVEL% >> "%LOGFILE%"
 )
 python -m backend.workers.enrich --drain --batch 100 --drain-timeout 10 >> "%LOGFILE%" 2>&1
 python -m backend.workers.compute_index >> "%LOGFILE%" 2>&1
@@ -77,20 +91,22 @@ REM Write weekend daily stamp after completion
 if "%WEEKEND%"=="1" (
     powershell -NoProfile -Command ^
         "$d=(Get-Date).ToString('yyyyMMdd'); ^
-         (Get-Date) | Out-File ('logs\weekend_ingest_'+$d+'.stamp') -Encoding utf8"
+         (Get-Date) | Out-File ('C:\ProgramData\IDXDaily\logs\weekend_ingest_'+$d+'.stamp') -Encoding utf8"
     echo [%DATE% %TIME%] Weekend stamp written - won't run again today. >> "%LOGFILE%"
 )
 
 echo. > "%STAMP%"
+del "%LOCK%" 2>nul
 exit /b 0
 
 :market_run
 echo [%DATE% %TIME%] Market-hours ingest (GN+RSS+HTML)... >> "%LOGFILE%"
 python -m backend.workers.ingest --google-news --gn-tier tag >> "%LOGFILE%" 2>&1
 if %ERRORLEVEL% neq 0 (
-    echo [ERROR] Ingest failed with exit code %ERRORLEVEL% — check ingest.lock and ingest.py >> "%LOGFILE%"
+    echo [ERROR] Ingest failed with exit code %ERRORLEVEL% >> "%LOGFILE%"
 )
 python -m backend.workers.enrich --drain --batch 150 --drain-timeout 8 >> "%LOGFILE%" 2>&1
 python -m backend.workers.compute_index >> "%LOGFILE%" 2>&1
 echo [%DATE% %TIME%] Market-hours run finished. >> "%LOGFILE%"
+del "%LOCK%" 2>nul
 exit /b 0

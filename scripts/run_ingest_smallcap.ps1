@@ -9,7 +9,7 @@ Set-Location $PROJECT
 $now       = Get-Date
 $hour      = $now.Hour
 $dateStr   = $now.ToString("yyyyMMdd")
-$stampFile = "logs\smallcap_sweep_$dateStr.stamp"
+$stampFile = "C:\ProgramData\IDXDaily\logs\smallcap_sweep_$dateStr.stamp"
 
 if (Test-Path $stampFile) {
     Write-Output "[$now] Already ran today, skipping."
@@ -22,17 +22,17 @@ if ($hour -lt 6 -or $hour -ge 8) {
 }
 
 Write-Output "[$now] Sweeping ~795 disabled tickers via Google News..."
-Add-Content "logs\ingest_smallcap.log" "[$now] SmallcapSweep starting..."
+Add-Content "C:\ProgramData\IDXDaily\logs\ingest_smallcap.log" "[$now] SmallcapSweep starting..."
 
 python -m backend.workers.ingest --google-news --skip-enabled 2>&1 |
-    Tee-Object -FilePath "logs\ingest_smallcap.log" -Append
+    Tee-Object -FilePath "C:\ProgramData\IDXDaily\logs\ingest_smallcap.log" -Append
 
 if ($LASTEXITCODE -ne 0) {
-    Add-Content "logs\ingest_smallcap.log" "[ERROR] SmallcapSweep failed (exit $LASTEXITCODE)"
+    Add-Content "C:\ProgramData\IDXDaily\logs\ingest_smallcap.log" "[ERROR] SmallcapSweep failed (exit $LASTEXITCODE)"
     Write-Output "[ERROR] SmallcapSweep failed"
     exit 1
 }
 
 $now | Out-File $stampFile -Encoding utf8
 Write-Output "[$now] SmallcapSweep complete."
-Add-Content "logs\ingest_smallcap.log" "[$now] SmallcapSweep complete."
+Add-Content "C:\ProgramData\IDXDaily\logs\ingest_smallcap.log" "[$now] SmallcapSweep complete."

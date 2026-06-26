@@ -5,18 +5,16 @@ REM Runs ONE full pass — does NOT loop or replay missed 15-min slots.
 REM Safe to re-run: ingest deduplicates, enrich is idempotent, compute_index overwrites.
 
 set PROJECT=C:\Users\Vito\OneDrive\Documents\AI News
-set LOGFILE=%PROJECT%\logs\catchup.log
+set LOGFILE=C:\ProgramData\IDXDaily\logs\catchup.log
 
 cd /d "%PROJECT%"
 
 echo [%DATE% %TIME%] === Catch-up started (unlock/resume) === >> "%LOGFILE%"
 
-REM Belt-and-suspenders: clear any stale ingest.lock left by sleep/crash.
-REM The tasklist fix in ingest.py is the real solution, but this ensures
-REM catchup can always run ingest cleanly on every PC wake regardless.
-if exist logs\ingest.lock (
+REM Clear any stale concurrency lock left by a crashed/hung ingest run.
+if exist "C:\ProgramData\IDXDaily\logs\ingest.lock" (
     echo [CATCHUP] Removing stale lock file on wake... >> "%LOGFILE%"
-    del logs\ingest.lock
+    del "C:\ProgramData\IDXDaily\logs\ingest.lock"
 )
 
 REM Full ingest — Google News + RSS + HTML, no market-hours gate

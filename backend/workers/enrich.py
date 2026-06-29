@@ -193,7 +193,7 @@ def call_gemini_macro_impact(
         except Exception as exc:
             msg = str(exc)
             is_rate = "429" in msg or "EXHAUSTED" in msg
-            is_transient = "503" in msg or "UNAVAILABLE" in msg
+            is_transient = "503" in msg or "UNAVAILABLE" in msg or "timeout" in msg.lower()
             last_exc = exc
             last_transient = is_rate or is_transient
             if attempt < 2 and (is_rate or is_transient):
@@ -454,7 +454,13 @@ def _get_client(api_key: str):
     global _gemini_client
     if _gemini_client is None:
         from google import genai
-        _gemini_client = genai.Client(api_key=api_key)
+        from google.genai import types as gtypes
+        # 90s timeout prevents the process from hanging indefinitely when
+        # Gemini accepts the TCP connection but never sends a response.
+        _gemini_client = genai.Client(
+            api_key=api_key,
+            http_options=gtypes.HttpOptions(timeout=90),
+        )
     return _gemini_client
 
 
@@ -518,11 +524,11 @@ def call_gemini(api_key: str, row: dict, model: str = DEFAULT_MODEL) -> dict:
         except Exception as exc:
             msg = str(exc)
             is_rate = "429" in msg or "EXHAUSTED" in msg
-            is_transient = "503" in msg or "UNAVAILABLE" in msg
+            is_transient = "503" in msg or "UNAVAILABLE" in msg or "timeout" in msg.lower()
             last_exc = exc
             last_transient = is_rate or is_transient
             if attempt < 2 and (is_rate or is_transient):
-                # Exponential backoff: 30s → 60s → 120s for rate limit; 10s → 20s for 503
+                # Exponential backoff: 30s → 60s → 120s for rate limit; 10s → 20s for 503/timeout
                 wait = (30 * (2 ** attempt)) if is_rate else (10 * (2 ** attempt))
                 print(f"     [retry {attempt+1}/{2}] waiting {wait}s ...")
                 time.sleep(wait)

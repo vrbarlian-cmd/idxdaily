@@ -455,11 +455,12 @@ def _get_client(api_key: str):
     if _gemini_client is None:
         from google import genai
         from google.genai import types as gtypes
-        # 90s timeout prevents the process from hanging indefinitely when
-        # Gemini accepts the TCP connection but never sends a response.
+        # HttpOptions.timeout is in MILLISECONDS (google.genai 2.4.0).
+        # 30000 ms = 30s per-request timeout so a hung TCP connection is
+        # detected quickly instead of blocking the process forever.
         _gemini_client = genai.Client(
             api_key=api_key,
-            http_options=gtypes.HttpOptions(timeout=15),
+            http_options=gtypes.HttpOptions(timeout=30000),
         )
     return _gemini_client
 

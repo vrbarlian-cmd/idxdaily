@@ -197,7 +197,7 @@ def call_gemini_macro_impact(
             last_exc = exc
             last_transient = is_rate or is_transient
             if attempt < 2 and (is_rate or is_transient):
-                wait = (30 * (2 ** attempt)) if is_rate else (10 * (2 ** attempt))
+                wait = (30 * (2 ** attempt)) if is_rate else 2
                 print(f"     [macro-retry {attempt+1}] waiting {wait}s ...")
                 time.sleep(wait)
             else:
@@ -459,7 +459,7 @@ def _get_client(api_key: str):
         # Gemini accepts the TCP connection but never sends a response.
         _gemini_client = genai.Client(
             api_key=api_key,
-            http_options=gtypes.HttpOptions(timeout=90),
+            http_options=gtypes.HttpOptions(timeout=15),
         )
     return _gemini_client
 
@@ -528,8 +528,8 @@ def call_gemini(api_key: str, row: dict, model: str = DEFAULT_MODEL) -> dict:
             last_exc = exc
             last_transient = is_rate or is_transient
             if attempt < 2 and (is_rate or is_transient):
-                # Exponential backoff: 30s → 60s → 120s for rate limit; 10s → 20s for 503/timeout
-                wait = (30 * (2 ** attempt)) if is_rate else (10 * (2 ** attempt))
+                # Exponential backoff: 30s → 60s → 120s for rate limit; 2s for 503/timeout
+                wait = (30 * (2 ** attempt)) if is_rate else 2
                 print(f"     [retry {attempt+1}/{2}] waiting {wait}s ...")
                 time.sleep(wait)
             else:
@@ -545,7 +545,7 @@ def call_gemini(api_key: str, row: dict, model: str = DEFAULT_MODEL) -> dict:
 # Main
 # ---------------------------------------------------------------------------
 
-async def run_batch(limit: int, ticker: str | None, force: bool = False, model: str = DEFAULT_MODEL, delay: float = 0.0) -> None:
+async def run_batch(limit: int, ticker: str | None, force: bool = False, model: str = DEFAULT_MODEL, delay: float = 0.0, deadline: float | None = None) -> None:
     api_key = os.environ.get("GEMINI_API_KEY", "")
     if not api_key:
         print(
@@ -567,6 +567,9 @@ async def run_batch(limit: int, ticker: str | None, force: bool = False, model: 
         ticker_map: dict[str, str] = {r["symbol"]: r["id"] for r in ticker_rows}
         ok = fail = 0
         for row in rows:
+            if deadline is not None and time.time() >= deadline:
+                print(f"[enrich] Deadline reached mid-batch — stopping early. {ok} done, {fail} failed.")
+                break
             # Fetch all high/medium-confidence mentions for this article
             mention_rows = await conn.fetch(
                 """
@@ -823,7 +826,7 @@ async def run_drain(
         elapsed_min = (time.time() - (deadline - timeout_min * 60)) / 60
         print(f"[drain] Pass {passes + 1}: {remaining} unenriched articles remaining "
               f"({elapsed_min:.1f}m elapsed)...")
-        await run_batch(batch, None, False, model, delay)
+        await run_batch(batch, None, False, model, delay, deadline=deadline)
         passes += 1
 
     # Timeout reached — report remaining backlog

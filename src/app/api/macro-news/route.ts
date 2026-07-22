@@ -53,6 +53,7 @@ export async function GET() {
     where: {
       aiSummary: { not: null },
       tickerId:  null,
+      category:  { not: 'SKIP' },
       OR: [
         { category: 'MACRO',      impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },
         { category: 'REGULATORY', impactScore: { gte: 5.5 }, source: { notIn: GLOBAL_SOURCES } },

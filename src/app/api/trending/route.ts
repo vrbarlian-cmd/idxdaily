@@ -12,7 +12,7 @@ export async function GET() {
   // Article counts per ticker in the last 24h (exclude macro articles with null tickerId)
   const groups = await prisma.news.groupBy({
     by: ['tickerId'],
-    where: { publishedAt: { gte: cutoff }, tickerId: { not: null } },
+    where: { publishedAt: { gte: cutoff }, tickerId: { not: null }, category: { not: 'SKIP' } },
     _count: { id: true },
     orderBy: { _count: { id: 'desc' } },
     take: 10,
@@ -28,7 +28,7 @@ export async function GET() {
 
   // Sentiment breakdown per ticker
   const sentimentRows = await prisma.news.findMany({
-    where: { tickerId: { in: tickerIds }, publishedAt: { gte: cutoff } },
+    where: { tickerId: { in: tickerIds }, publishedAt: { gte: cutoff }, category: { not: 'SKIP' } },
     select: { tickerId: true, sentiment: true },
   });
 

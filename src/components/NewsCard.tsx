@@ -4,11 +4,13 @@ import { formatDistanceToNow } from 'date-fns';
 
 function decodeHTML(str: string): string {
   return str
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(parseInt(dec, 10)))
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&apos;/g, "'");
 }
 import { id as localeId } from 'date-fns/locale';
 import { Sparkles } from 'lucide-react';

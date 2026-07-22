@@ -17,11 +17,16 @@ export async function GET(request: NextRequest) {
     const cutoff = new Date();
     cutoff.setHours(cutoff.getHours() - 24);
 
+    const wibDay = new Date(Date.now() + 7 * 60 * 60 * 1000).getUTCDay();
+    const isWeekend = wibDay === 0 || wibDay === 6;
+    const threshold = isWeekend ? 7.0 : 8.0;
+
     const news = await prisma.news.findMany({
       where: {
         aiSummary: { not: null },
-        impactScore: { gte: 8.0 },
+        impactScore: { gte: threshold },
         publishedAt: { gte: cutoff },
+        category: { not: 'SKIP' },
       },
       orderBy: [{ publishedAt: 'desc' }, { impactScore: 'desc' }],
       take: limit,
@@ -52,6 +57,7 @@ export async function GET(request: NextRequest) {
   const news = await prisma.news.findMany({
     where: {
       tickerId: tickerRow.id,
+      category: { not: 'SKIP' },
       ...(sentiment && ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(sentiment) ? { sentiment } : {}),
     },
     orderBy: [{ publishedAt: 'desc' }, { impactScore: 'desc' }],

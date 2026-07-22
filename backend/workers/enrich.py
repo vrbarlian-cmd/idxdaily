@@ -35,6 +35,95 @@ load_dotenv(PROJECT_ROOT / ".env")
 load_dotenv(PROJECT_ROOT / ".env.local", override=True)
 
 from ._db import get_conn
+import re as _re
+
+
+# ---------------------------------------------------------------------------
+# Pre-filter: fast keyword gate before any Gemini call
+# ---------------------------------------------------------------------------
+
+BLOCKLIST_KEYWORDS = [
+    # Sports & entertainment
+    "world cup", "champions league", "fifa", "nba", "nfl", "formula 1", "olympics",
+    "stubhub", "ticket", "concert", "celebrity", "actor", "actress", "film", "movie",
+    # Legal/lawsuit noise unrelated to markets
+    "sue", "lawsuit", "court ruling", "settlement",
+    # General non-market international news
+    "hurricane", "earthquake", "flood", "wildfire", "tornado",
+    "election fraud", "immigration", "border",
+]
+
+REQUIRED_MARKET_KEYWORDS = [
+    # Indonesia macro
+    "bank indonesia", "bi rate", "ihsg", "idx", "bei", "ojk", "bps", "inflasi",
+    "rupiah", "idr", "apbn", "gdp", "pdb", "ekspor", "impor", "neraca",
+    # Global macro that moves IDX
+    "fed", "federal reserve", "fomc", "powell", "jerome", "rate hike", "rate cut",
+    "nfp", "non-farm", "cpi", "inflation", "dxy", "dollar index", "vix",
+    "china pmi", "china gdp", "china manufacturing",
+    # Commodities
+    "crude oil", "brent", "wti", "coal", "newcastle", "cpo", "palm oil", "nickel",
+    "copper", "gold", "emas",
+    # Corporate/market
+    "bbca", "bbri", "bmri", "bbni", "tlkm", "asii",
+    "foreign buy", "foreign sell", "net buy", "net sell", "asing",
+    "emiten", "saham", "bursa", "dividen", "rights issue", "ipo",
+    "earnings", "laba", "pendapatan", "kinerja keuangan",
+    # Indonesian corporate news signals (catches ticker-only titles)
+    "kinerja", "pertumbuhan", "rugi", "transaksi",
+    "eksekusi", "akuisisi", "merger", "divestasi", "restrukturisasi",
+    "kontrak", "proyek", "ekspansi", "capex", "investasi",
+    "penawaran umum", "obligasi", "sukuk",
+    "buyback", "tender offer", "go private",
+    "kuartal", "semester", "tahunan", "laporan keuangan",
+    "perseroan", "tbk",
+    # Tech/startup IDX emiten & ecosystem (GOTO, BUKA, etc.)
+    "goto", "tokopedia", "gojek", "traveloka", "bukalapak", "shopee", "sea limited",
+    # Labour/restructuring events at listed companies
+    "phk", "pemutusan hubungan kerja", "restrukturisasi karyawan",
+    "efisiensi", "pemangkasan",
+    # Debt, credit & financial health signals
+    "utang", "kredit", "kreditur", "rasio utang", "debt", "leverage",
+    "default", "gagal bayar", "restrukturisasi utang", "pinjaman",
+    "fasilitas kredit", "plafon", "covenant",
+    # Credit ratings
+    "pefindo", "fitch", "moody", "s&p", "rating", "peringkat",
+    "upgrade rating", "downgrade rating",
+    # Corporate financial events
+    "laporan tahunan", "annual report", "rups", "rapat umum",
+    "right issue", "penerbitan saham", "saham baru",
+    "waran", "konversi", "obligasi wajib konversi",
+    # Mining, energy, plantation (heavy IDX sectors)
+    "ptro", "petrosea", "bayan", "adro", "itmg", "ptba",
+    "aali", "lsip", "simp", "tbla",
+    "smgr", "intp", "wton",
+]
+
+DOMESTIC_SOURCES = [
+    "detik", "kontan", "bisnis", "katadata", "cnbcindonesia",
+    "idxchannel", "emitennews", "bloombergtechnoz",
+]
+
+
+def is_market_relevant(title: str, body: str = "") -> bool:
+    """Return False if article is clearly not relevant to IDX/macro pillars."""
+    text = (title + " " + body).lower()
+
+    # Hard blocklist — word-boundary regex to avoid substring false positives
+    # e.g. "nfl" must not match inside "inflasi"; "nba" must not match "kombinasi"
+    for kw in BLOCKLIST_KEYWORDS:
+        pattern = r'\b' + _re.escape(kw) + r'\b'
+        if _re.search(pattern, text):
+            return False
+
+    # Require at least one market-relevant keyword in title or body
+    for kw in REQUIRED_MARKET_KEYWORDS:
+        if kw in text:
+            return True
+
+    # Domestic sources get a lenient pass — they rarely publish off-topic content
+    is_domestic = any(src in text for src in DOMESTIC_SOURCES)
+    return is_domestic
 
 
 # ---------------------------------------------------------------------------
@@ -285,7 +374,22 @@ Contoh lain yang BENAR untuk berita korporasi:
   "category": "FINANCIAL"
 }"""
 
-USER_TEMPLATE = """PENTING: Field 'summary' WAJIB dalam Bahasa Indonesia. Lihat contoh di bawah.
+USER_TEMPLATE = """RELEVANCE GATE: Before writing any analysis, determine if this article is genuinely relevant to Indonesian capital markets through one of these three pillars:
+
+1. Domestic Indonesia macro: Bank Indonesia policy, BPS data (inflation/GDP), trade balance, fiscal policy (APBN, tax)
+2. Global macro that moves IDX: US Fed decisions, US CPI/NFP, China PMI/GDP, USD/IDR, DXY, VIX, commodity prices (oil, coal, CPO, nickel)
+3. IDX market/corporate: Foreign flow data, earnings or corporate actions of any IDX-listed emiten (including but not limited to BBCA/BBRI/BMRI/BBNI/TLKM/ASII), OJK/IDX regulatory changes, IPO announcements (Penawaran Umum/IPO), rights issues, bond issuances (obligasi/sukuk), dividends, mergers & acquisitions, and any news about specific IDX ticker symbols.
+
+IMPORTANT: Any article mentioning a specific IDX ticker symbol (e.g. GPRA, DSSA, JECX, JELI) or containing Indonesian corporate terms (emiten, perseroan, tbk, kinerja, laba, transaksi jumbo) is almost certainly Pillar 3 relevant. Do NOT reject these.
+
+If the article does NOT clearly fit one of these pillars (e.g., it is about sports, entertainment, foreign lawsuits unrelated to markets, or international news with no IDX connection), output EXACTLY this and nothing else:
+{{"relevant": false, "reason": "not market relevant"}}
+
+If it IS relevant, proceed with the normal enrichment below.
+
+---
+
+PENTING: Field 'summary' WAJIB dalam Bahasa Indonesia. Lihat contoh di bawah.
 
 {example}
 
@@ -508,6 +612,15 @@ def call_gemini(api_key: str, row: dict, model: str = DEFAULT_MODEL) -> dict:
                 ),
             )
             raw = response.text.strip()
+            # Check for relevance gate rejection before JSON parse
+            if '"relevant": false' in raw or "'relevant': false" in raw:
+                return {
+                    "_filtered": True,
+                    "summary": "[filtered: not market relevant]",
+                    "sentiment": "NEUTRAL",
+                    "impactScore": 0.0,
+                    "category": "SKIP",
+                }
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
                 if raw.startswith("json"):
@@ -571,6 +684,19 @@ async def run_batch(limit: int, ticker: str | None, force: bool = False, model: 
             if deadline is not None and time.time() >= deadline:
                 print(f"[enrich] Deadline reached mid-batch — stopping early. {ok} done, {fail} failed.")
                 break
+
+            # Pre-filter: skip irrelevant articles before hitting Gemini
+            body_text = (row.get("body") or row.get("original_summary") or "")
+            if not is_market_relevant(row["title"], body_text):
+                print(f"  [RELEVANCE SKIP] {row['title'][:80]}")
+                await save_enrichment(conn, row["id"], {
+                    "summary": "[filtered: not market relevant]",
+                    "sentiment": "NEUTRAL",
+                    "impactScore": 0.0,
+                    "category": "SKIP",
+                })
+                continue
+
             # Fetch all high/medium-confidence mentions for this article
             mention_rows = await conn.fetch(
                 """
@@ -603,6 +729,7 @@ async def run_batch(limit: int, ticker: str | None, force: bool = False, model: 
             primary_tid = row["ticker_id"]
             primary_saved = False
             last_category = "GENERAL"   # track category from primary enrichment
+            article_filtered = False
 
             is_macro_article = (row["symbol"] == "_MACRO_")  # NULL-ticker article
 
@@ -616,6 +743,13 @@ async def run_batch(limit: int, ticker: str | None, force: bool = False, model: 
                     print(f"  -> [{m['symbol']}] {row['title'][:55]} ...")
                     try:
                         result = call_gemini(api_key, enrich_row, model=model)
+
+                        # Gemini relevance gate rejection
+                        if result.get("_filtered"):
+                            print(f"     [GEMINI REJECT] {row['title'][:80]}")
+                            await save_enrichment(conn, row["id"], result)
+                            article_filtered = True
+                            break
 
                         # Save per-ticker summary into ticker_mentions
                         await save_mention_enrichment(conn, row["id"], m["ticker_id"], result)
@@ -642,7 +776,8 @@ async def run_batch(limit: int, ticker: str | None, force: bool = False, model: 
             # Run for:
             #   (a) Pure macro articles (NULL ticker_id) — always
             #   (b) Direct-ticker articles classified as MACRO/REGULATORY/SECTOR
-            run_macro = is_macro_article or last_category in ("MACRO", "REGULATORY", "SECTOR")
+            # Skip if article was filtered by pre-filter or Gemini relevance gate
+            run_macro = not article_filtered and (is_macro_article or last_category in ("MACRO", "REGULATORY", "SECTOR"))
 
             if run_macro:
                 existing_symbols = [m["symbol"] for m in primary_first] if not is_macro_article else []

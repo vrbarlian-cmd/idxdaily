@@ -19,7 +19,7 @@ export async function GET(
     where: {
       tickerId: tickerRow.id,
       matchConfidence: { in: ['high', 'medium'] },
-      article: { publishedAt: { not: null } },
+      article: { publishedAt: { not: null }, category: { not: 'SKIP' } },
     },
     orderBy: [
       { article: { publishedAt: 'desc' } },

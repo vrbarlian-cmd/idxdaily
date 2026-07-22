@@ -18,6 +18,7 @@ Usage (from project root):
 
 import argparse
 import asyncio
+import html as _html
 import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -555,6 +556,8 @@ async def article_exists(conn, url: str) -> bool:
 
 async def insert_article(conn, ticker_id: str | None, art: dict) -> str:
     art_id = str(uuid.uuid4())
+    title   = _html.unescape(art["title"])
+    snippet = _html.unescape(art.get("snippet", "") or "")
     await conn.execute(
         """
         INSERT INTO articles
@@ -564,7 +567,7 @@ async def insert_article(conn, ticker_id: str | None, art: dict) -> str:
         ON CONFLICT DO NOTHING
         """,
         art_id, ticker_id,
-        art["title"], art.get("snippet", ""), art["url"], art["source"],
+        title, snippet, art["url"], art["source"],
         art["published_at"], "NEUTRAL", 5.0, "GENERAL", False,
     )
     return art_id

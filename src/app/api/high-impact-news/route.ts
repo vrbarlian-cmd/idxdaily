@@ -11,7 +11,7 @@ export async function GET() {
       aiSummary:   { not: null },
       impactScore: { gte: 7.0 },
       tickerId:    { not: null },
-      category:    { notIn: ['MACRO', 'REGULATORY'] },
+      category:    { notIn: ['MACRO', 'REGULATORY', 'SKIP'] },
     },
     orderBy: [{ publishedAt: 'desc' }, { impactScore: 'desc' }],
     take: 4,

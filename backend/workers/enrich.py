@@ -61,9 +61,10 @@ REQUIRED_MARKET_KEYWORDS = [
     "fed", "federal reserve", "fomc", "powell", "jerome", "rate hike", "rate cut",
     "nfp", "non-farm", "cpi", "inflation", "dxy", "dollar index", "vix",
     "china pmi", "china gdp", "china manufacturing",
-    # Commodities
+    # Commodities (English + Indonesian)
     "crude oil", "brent", "wti", "coal", "newcastle", "cpo", "palm oil", "nickel",
     "copper", "gold", "emas",
+    "nikel", "minyak", "batu bara", "tembaga", "timah", "bauksit",
     # Corporate/market
     "bbca", "bbri", "bmri", "bbni", "tlkm", "asii",
     "foreign buy", "foreign sell", "net buy", "net sell", "asing",
@@ -74,11 +75,13 @@ REQUIRED_MARKET_KEYWORDS = [
     "eksekusi", "akuisisi", "merger", "divestasi", "restrukturisasi",
     "kontrak", "proyek", "ekspansi", "capex", "investasi",
     "penawaran umum", "obligasi", "sukuk",
-    "buyback", "tender offer", "go private",
+    "buyback", "tender offer", "go private", "stock split", "split saham",
+    "msci", "ftse", "morgan stanley",
     "kuartal", "semester", "tahunan", "laporan keuangan",
     "perseroan", "tbk",
     # Tech/startup IDX emiten & ecosystem (GOTO, BUKA, etc.)
     "goto", "tokopedia", "gojek", "traveloka", "bukalapak", "shopee", "sea limited",
+    "telkom", "pertamina", "pln", "garuda", "mandiri", "bri", "bni", "bca",
     # Labour/restructuring events at listed companies
     "phk", "pemutusan hubungan kerja", "restrukturisasi karyawan",
     "efisiensi", "pemangkasan",
@@ -105,7 +108,7 @@ DOMESTIC_SOURCES = [
 ]
 
 
-def is_market_relevant(title: str, body: str = "") -> bool:
+def is_market_relevant(title: str, body: str = "", source: str = "") -> bool:
     """Return False if article is clearly not relevant to IDX/macro pillars."""
     text = (title + " " + body).lower()
 
@@ -122,7 +125,9 @@ def is_market_relevant(title: str, body: str = "") -> bool:
             return True
 
     # Domestic sources get a lenient pass — they rarely publish off-topic content
-    is_domestic = any(src in text for src in DOMESTIC_SOURCES)
+    # Check source field directly (not body text) so bisnis.com/kontan articles pass
+    source_lower = source.lower()
+    is_domestic = any(src in source_lower for src in DOMESTIC_SOURCES)
     return is_domestic
 
 
@@ -687,7 +692,7 @@ async def run_batch(limit: int, ticker: str | None, force: bool = False, model: 
 
             # Pre-filter: skip irrelevant articles before hitting Gemini
             body_text = (row.get("body") or row.get("original_summary") or "")
-            if not is_market_relevant(row["title"], body_text):
+            if not is_market_relevant(row["title"], body_text, row.get("source", "")):
                 print(f"  [RELEVANCE SKIP] {row['title'][:80]}")
                 await save_enrichment(conn, row["id"], {
                     "summary": "[filtered: not market relevant]",

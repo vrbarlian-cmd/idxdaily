@@ -72,7 +72,7 @@ interface CustomTooltipProps {
   label?:   string;
 }
 
-function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
+function CustomTooltip({ active, payload }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   const pt = payload[0]?.payload as ChartPoint | undefined;
   if (!pt) return null;
@@ -81,9 +81,13 @@ function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   const ihsgVal = pt.ihsg;
   const fgLabel = pt.label;
 
+  const fullDate = pt.rawDate
+    ? new Date(pt.rawDate + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+    : pt.dateLabel;
+
   return (
     <div className="bg-white border border-[#e5e2db] rounded-xl shadow-lg p-3 text-xs min-w-[150px]">
-      <p className="font-semibold text-[#6b7280] mb-2 pb-1.5 border-b border-[#f0ede8]">{label}</p>
+      <p className="font-semibold text-[#6b7280] mb-2 pb-1.5 border-b border-[#f0ede8]">{fullDate}</p>
       {fgVal != null && (
         <div className="flex items-center justify-between gap-3 mb-1">
           <span className="text-[#9ca3af]">Fear &amp; Greed</span>

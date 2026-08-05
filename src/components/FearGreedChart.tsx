@@ -292,7 +292,8 @@ export default function FearGreedChart() {
               <CartesianGrid strokeDasharray="3 3" stroke="#f0ede8" vertical={false} />
 
               <XAxis
-                dataKey="dateLabel"
+                dataKey="rawDate"
+                tickFormatter={(v: string) => formatDateLabel(v)}
                 tick={{ fontSize: 10, fill: '#9ca3af' }}
                 tickLine={false}
                 axisLine={false}

@@ -44,6 +44,21 @@
   "BAGI": { "skip_symbol_tag": true,  "name_slugs": [] },
   "ARUS": { "skip_symbol_tag": true,  "name_slugs": [] },
   "MASA": { "skip_symbol_tag": true,  "name_slugs": ["Multistrada Arah Sarana"] },
+  "DATA": { "skip_symbol_tag": true,  "name_slugs": ["Remala Abadi"] },
+  "RELI": { "skip_symbol_tag": true,  "name_slugs": ["Reliance Sekuritas"] },
+  "MUTU": { "skip_symbol_tag": true,  "name_slugs": ["Mutuagung Lestari"] },
+  "MEJA": { "skip_symbol_tag": true,  "name_slugs": ["Harta Djaya Karya"] },
+  "IKAN": { "skip_symbol_tag": true,  "name_slugs": ["Era Mandiri Cemerlang"] },
+  "GUNA": { "skip_symbol_tag": true,  "name_slugs": ["Global Sukses Digital"] },
+  "BUAH": { "skip_symbol_tag": true,  "name_slugs": ["Segar Kumala Indonesia"] },
+  "AMAN": { "skip_symbol_tag": true,  "name_slugs": ["Makmur Berkah Amanda"] },
+  "PIPA": { "skip_symbol_tag": true,  "name_slugs": ["Multi Makmur Lemindo"] },
+  "BALI": { "skip_symbol_tag": true,  "name_slugs": ["Bali Towerindo Sentra"] },
+  "UNIT": { "skip_symbol_tag": true,  "name_slugs": ["Nusantara Inti Corpora"] },
+  "AUTO": { "skip_symbol_tag": true,  "name_slugs": ["Astra Otoparts"] },
+  "PADI": { "skip_symbol_tag": true,  "name_slugs": ["Minna Padi"] },
+  "AWAN": { "skip_symbol_tag": true,  "name_slugs": ["Era Digital Media"] },
+  "AGRO": { "skip_symbol_tag": true,  "name_slugs": ["Bank Raya Indonesia", "Bank Raya"] },
 
   "_english_and_proper_noun_collisions": "--- Tickers whose codes collide with English words, train names, celebrity names, etc. ---",
 
@@ -54,6 +69,12 @@
   "HOME": { "skip_symbol_tag": true,  "name_slugs": ["Hotel Mandarine Regency"] },
   "META": { "skip_symbol_tag": true,  "name_slugs": ["Nusantara Infrastructure"] },
   "RAJA": { "skip_symbol_tag": true,  "name_slugs": ["Rukun Raharja"] },
+  "EURO": { "skip_symbol_tag": true,  "name_slugs": ["Estee Gold Feet"] },
+  "FIRE": { "skip_symbol_tag": true,  "name_slugs": ["Alfa Energi Investama"] },
+
+  "_ambiguous_needs_more_than_skip_tag": "--- these need attention beyond skip_symbol_tag: their own ALIAS is also ambiguous (collides with a same-named but unrelated global entity), so medium-confidence alias matching can still misfire. Flagged for manual review, not fully solved here. ---",
+
+  "MERK": { "skip_symbol_tag": true,  "name_slugs": ["Merck Tbk"] },
 
   "_known_good_with_extra_slugs": "--- Tickers we want AND extra brand name aliases ---",
 

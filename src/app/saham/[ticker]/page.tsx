@@ -72,11 +72,17 @@ function buildMentionWhere(
   // INVARIANT: only show articles that have been enriched (aiSummary IS NOT NULL).
   // Unenriched articles stay hidden until enrichment completes — they must never
   // display with the DB-default NEUTRAL/5.0 placeholder values.
+  //
+  // INVARIANT: never show category='SKIP' articles. enrich.py's relevance
+  // pre-filter sets category=SKIP *and* a non-null placeholder aiSummary
+  // ("[filtered: not market relevant]") for articles it judges irrelevant —
+  // that placeholder passes the aiSummary-not-null check above, so this
+  // separate category exclusion is required or SKIP articles leak through.
   return {
     tickerId,
     article: hasDateFilter
-      ? { publishedAt: { ...dateFilter, not: null as null }, aiSummary: { not: null } }
-      : { publishedAt: { not: null as null }, aiSummary: { not: null } },
+      ? { publishedAt: { ...dateFilter, not: null as null }, aiSummary: { not: null }, category: { not: 'SKIP' } }
+      : { publishedAt: { not: null as null }, aiSummary: { not: null }, category: { not: 'SKIP' } },
     AND: [
       { OR: matchTypeOr },
       ...sentimentAnd,
@@ -162,7 +168,7 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
         { matchConfidence: { in: ['high', 'medium'] } },
         { matchType: 'macro_impact' },
       ],
-      article: { publishedAt: { gte: cutoff7d } },
+      article: { publishedAt: { gte: cutoff7d }, category: { not: 'SKIP' } },
     },
     select: {
       sentiment: true, impactScore: true, aiSummary: true, matchType: true,

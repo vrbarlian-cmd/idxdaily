@@ -1,15 +1,15 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Newspaper } from 'lucide-react';
+import { Suspense } from 'react';
 import { prisma } from '@/lib/prisma';
-import NewsCard from '@/components/NewsCard';
 import TrendingTickers from '@/components/TrendingTickers';
-import ArchiveSection from '@/components/ArchiveSection';
+import TickerNewsFeed from '@/components/TickerNewsFeed';
 import { dedupArticles } from '@/lib/dedupArticles';
+
+export const revalidate = 60;
 
 interface PageProps {
   params: { ticker: string };
-  searchParams: { sentiment?: string };
 }
 
 function StatCard({
@@ -144,9 +144,8 @@ function sortMentions<T extends { matchType: string; impactScore: number | null;
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-export default async function TickerPage({ params, searchParams }: PageProps) {
+export default async function TickerPage({ params }: PageProps) {
   const symbol = params.ticker.toUpperCase();
-  const sentimentFilter = searchParams.sentiment?.toUpperCase();
 
   const tickerRow = await prisma.ticker.findUnique({
     where: { symbol },
@@ -217,40 +216,30 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
     'bg-amber-50 text-amber-700 border-amber-200';
 
   // ── "Berita Terbaru" — last 30 days (live feed) ───────────────────────────
+  // Always fetched unfiltered (no sentiment param) so this query — and the
+  // whole route — stays cacheable via ISR (`revalidate` above). Sentiment
+  // filtering happens client-side in TickerNewsFeed instead.
   const recentRaw = await prisma.tickerMention.findMany({
-    where: buildMentionWhere(tickerRow.id, sentimentFilter, cutoff30d, null, true),
+    where: buildMentionWhere(tickerRow.id, undefined, cutoff30d, null, true),
     orderBy: { article: { publishedAt: 'desc' } },
     take: 50,
     select: MENTION_SELECT,
   });
 
-  const recentNews = dedupArticles(
-    sortMentions(recentRaw)
-      .filter(m => !sentimentFilter
-        || (m.sentiment ?? m.article.sentiment) === sentimentFilter)
-      .map(mapMention)
-  );
+  const recentNews = dedupArticles(sortMentions(recentRaw).map(mapMention));
 
   // ── "Arsip" — older than 30 days (clearly labeled, collapsible) ───────────
-  // Only fetch archive when recent news is sparse (< 5 items after filtering)
-  // so we don't add clutter when there's plenty of recent news.
+  // Only fetch archive when recent news is sparse (< 5 items) so we don't add
+  // clutter when there's plenty of recent news.
   const ARCHIVE_THRESHOLD = 5;
   const archiveItems = recentNews.length < ARCHIVE_THRESHOLD
     ? await prisma.tickerMention.findMany({
-        where: buildMentionWhere(tickerRow.id, sentimentFilter, null, cutoff30d, false),
+        where: buildMentionWhere(tickerRow.id, undefined, null, cutoff30d, false),
         orderBy: { article: { publishedAt: 'desc' } },
         take: 20,
         select: MENTION_SELECT,
-      }).then(rows =>
-          dedupArticles(
-            sortMentions(rows)
-              .filter(m => !sentimentFilter || (m.sentiment ?? m.article.sentiment) === sentimentFilter)
-              .map(mapMention)
-          )
-      )
+      }).then(rows => dedupArticles(sortMentions(rows).map(mapMention)))
     : [];
-
-  const sentiments = ['ALL', 'BULLISH', 'BEARISH', 'NEUTRAL'] as const;
 
   return (
     <div className="min-h-screen bg-[#f8f7f4]">
@@ -318,80 +307,15 @@ export default async function TickerPage({ params, searchParams }: PageProps) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {/* Article list */}
           <div className="md:col-span-2 space-y-4">
-
-            {/* ── Berita Terbaru (30d live feed) ── */}
-            <div>
-              <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-widest text-[#9ca3af]">Berita Terbaru</p>
-                  <p className="text-[10px] text-[#9ca3af] mt-0.5">30 hari terakhir · {recentNews.length} artikel</p>
-                </div>
-                {/* Sentiment filter */}
-                <div className="flex flex-wrap gap-1">
-                  {sentiments.map((s) => {
-                    const isActive = s === 'ALL' ? !sentimentFilter : sentimentFilter === s;
-                    const href = s === 'ALL'
-                      ? `/saham/${tickerRow.symbol}`
-                      : `/saham/${tickerRow.symbol}?sentiment=${s}`;
-                    return (
-                      <Link
-                        key={s}
-                        href={href}
-                        className={`px-3 py-1 text-xs rounded-full border transition-all font-medium ${
-                          isActive
-                            ? s === 'BULLISH' ? 'bg-emerald-50 border-emerald-300 text-emerald-700'
-                            : s === 'BEARISH' ? 'bg-red-50 border-red-300 text-red-600'
-                            : s === 'NEUTRAL' ? 'bg-amber-50 border-amber-300 text-amber-700'
-                            : 'bg-blue-50 border-blue-300 text-[#1a56db]'
-                            : 'bg-white border-[#e5e2db] text-[#6b7280] hover:border-[#d1cdc7] hover:bg-[#f8f7f4]'
-                        }`}
-                      >
-                        {s}
-                      </Link>
-                    );
-                  })}
-                </div>
-              </div>
-              <hr className="border-[#e5e2db]" />
-            </div>
-
-            {recentNews.length === 0 ? (
-              <div className="bg-white border border-[#e5e2db] rounded-xl p-8 text-center space-y-3">
-                <div className="flex justify-center">
-                  <Newspaper className="w-8 h-8 text-[#d1cdc7]" />
-                </div>
-                <p className="text-[#374151] font-medium text-sm">
-                  {sentimentFilter
-                    ? `Tidak ada berita ${sentimentFilter.toLowerCase()} untuk ${tickerRow.symbol} dalam 30 hari terakhir`
-                    : `Belum ada berita terbaru untuk ${tickerRow.symbol} dalam 30 hari terakhir`
-                  }
-                </p>
-                <p className="text-[#9ca3af] text-xs leading-relaxed max-w-xs mx-auto">
-                  {sentimentFilter
-                    ? 'Coba hapus filter sentimen, atau kembali lagi nanti.'
-                    : tickerRow.sector
-                      ? `${tickerRow.name} belum muncul di sumber berita kami. Cek arsip di bawah untuk berita lama, atau lihat konteks makro sektor ${tickerRow.sector} di beranda.`
-                      : `${tickerRow.name} belum muncul di sumber berita yang kami pantau. Kami terus menambah cakupan sumber berita secara berkala.`
-                  }
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {recentNews.map((item) => (
-                  <NewsCard key={item.id} news={item} isMacroImpact={item.isMacroImpact} />
-                ))}
-              </div>
-            )}
-
-            {/* ── Arsip (collapsible, older than 30d, clearly labeled) ── */}
-            {/* Only shown when recent news is sparse AND we found archive items */}
-            {archiveItems.length > 0 && (
-              <ArchiveSection
-                items={archiveItems}
+            <Suspense fallback={null}>
+              <TickerNewsFeed
                 symbol={tickerRow.symbol}
-                autoExpand={recentNews.length === 0}
+                tickerName={tickerRow.name}
+                sector={tickerRow.sector}
+                allRecentNews={recentNews}
+                allArchiveItems={archiveItems}
               />
-            )}
+            </Suspense>
           </div>
 
           {/* Sidebar: trending tickers */}

@@ -8,7 +8,7 @@ import AGradeNews          from '@/components/AGradeNews';
 import MacroMarketNews     from '@/components/MacroMarketNews';
 import HeroSearch          from '@/components/HeroSearch';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 export default async function Home() {
   const [fgData, histData, popularTickers] = await Promise.all([

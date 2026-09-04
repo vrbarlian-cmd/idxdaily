@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 60;
 
 // GET /api/high-impact-news
 // Returns the top 4 high-impact stock articles for the AGradeNews component.

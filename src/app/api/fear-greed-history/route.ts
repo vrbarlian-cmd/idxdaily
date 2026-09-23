@@ -1,6 +1,44 @@
 ﻿import { NextResponse } from 'next/server';
+import { unstable_cache } from 'next/cache';
 import { prisma } from '@/lib/prisma';
-export const dynamic = 'force-dynamic';
+
+// Reading request.url below (for the `days` query param) makes this route
+// handler dynamic in Next.js's eyes, so `export const revalidate` alone does
+// NOT cache it - wrap the actual DB queries in unstable_cache instead, keyed
+// by `days`, so repeat requests for the same window skip Postgres entirely.
+const getCachedHistory = unstable_cache(
+  async (days: number) => {
+    const fgRows = await prisma.$queryRaw<
+      Array<{
+        date:           Date;
+        score:          number | null;
+        raw_score:      number | null;
+        smoothed_score: number | null;
+        label:          string;
+        is_backfilled:  boolean;
+      }>
+    >`
+      SELECT date, score, raw_score, smoothed_score, label,
+             COALESCE(is_backfilled, FALSE) AS is_backfilled
+      FROM fear_greed_index
+      WHERE date >= CURRENT_DATE - ${days}::int
+      ORDER BY date ASC
+    `;
+
+    const ihsgRows = await prisma.$queryRaw<
+      Array<{ date: Date; close: number }>
+    >`
+      SELECT date, close::float8 AS close
+      FROM ihsg_daily
+      WHERE date >= CURRENT_DATE - ${days}::int
+      ORDER BY date ASC
+    `;
+
+    return { fgRows, ihsgRows };
+  },
+  ['fear-greed-history'],
+  { revalidate: 300 },
+);
 
 export interface FearGreedHistoryPoint {
   date:          string;   // YYYY-MM-DD
@@ -19,35 +57,7 @@ export async function GET(request: Request) {
   // For “all”, use 3650 days (10 years) - effectively unbounded
   const days = isAll ? 3650 : Math.max(7, Math.min(365, parseInt(daysParam, 10)));
 
-  // Fetch F&G history with is_backfilled flag
-  const fgRows = await prisma.$queryRaw<
-    Array<{
-      date:           Date;
-      score:          number | null;
-      raw_score:      number | null;
-      smoothed_score: number | null;
-      label:          string;
-      is_backfilled:  boolean;
-    }>
-  >`
-    SELECT date, score, raw_score, smoothed_score, label,
-           COALESCE(is_backfilled, FALSE) AS is_backfilled
-    FROM fear_greed_index
-    WHERE date >= CURRENT_DATE - ${days}::int
-    ORDER BY date ASC
-  `;
-
-  // Fetch IHSG close prices for the same window
-  // Cast to float8 (double precision) to guarantee node-postgres returns a JS number,
-  // not a Decimal or other type, regardless of the stored column type (REAL/float4).
-  const ihsgRows = await prisma.$queryRaw<
-    Array<{ date: Date; close: number }>
-  >`
-    SELECT date, close::float8 AS close
-    FROM ihsg_daily
-    WHERE date >= CURRENT_DATE - ${days}::int
-    ORDER BY date ASC
-  `;
+  const { fgRows, ihsgRows } = await getCachedHistory(days);
 
   // Build IHSG lookup map
   // Guard: IHSG has traded between ~1,000-10,000 historically; reject any value

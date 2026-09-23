@@ -152,27 +152,6 @@ async def fetch_recent_articles(conn, hours: int = 48, as_of_ts: datetime | None
             for r in rows]
 
 
-async def fetch_stock_daily(conn, days: int = 25) -> dict[str, list[float]]:
-    """Returns {ticker: [close_oldest, ..., close_latest]} for LQ45 breadth computation."""
-    cutoff = datetime.now(timezone.utc).date() - timedelta(days=days)
-    rows = await conn.fetch(
-        """
-        SELECT ticker, date, close
-        FROM stock_daily
-        WHERE date >= $1
-        ORDER BY ticker, date ASC
-        """,
-        cutoff,
-    )
-    result: dict[str, list[float]] = {}
-    for r in rows:
-        t = r["ticker"]
-        if t not in result:
-            result[t] = []
-        result[t].append(float(r["close"]))
-    return result
-
-
 async def fetch_foreign_flow(conn, days: int = 90, as_of: date | None = None) -> list[dict]:
     """Returns N days of foreign flow ending at `as_of` (or today), sorted date asc."""
     anchor = as_of or datetime.now(timezone.utc).date()
@@ -588,7 +567,6 @@ async def run(days: int, as_of: date | None = None, quiet: bool = False,
             usdidr_bars = [b for b in usdidr_bars if b["date"] <= as_of]
         article_rows_48h = await fetch_recent_articles(conn, hours=48, as_of_ts=as_of_ts)
         article_rows_nd  = await fetch_all_articles(conn, days=days, as_of_ts=as_of_ts)
-        stock_prices     = await fetch_stock_daily(conn, days=35)
         flow_rows        = await fetch_foreign_flow(conn, days=90, as_of=as_of)
         breadth_rows     = await fetch_market_breadth(conn, days=90, as_of=as_of)
         prev_smoothed    = await fetch_previous_smoothed(conn, before_date=as_of)
@@ -662,7 +640,6 @@ async def run(days: int, as_of: date | None = None, quiet: bool = False,
 
         print(f"\n  Articles (48h)  : {len(article_rows_48h)}")
         print(f"  Articles ({days:2d}d)  : {len(article_rows_nd)}")
-        print(f"  LQ45 stocks    : {len(stock_prices)}")
         print(f"  Foreign flow d : {len(flow_rows)}")
         print(f"  Breadth days   : {len(breadth_rows)}")
         print(f"{'='*64}\n")

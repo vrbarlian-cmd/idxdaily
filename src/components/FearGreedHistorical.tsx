@@ -1,16 +1,12 @@
 import { Clock } from 'lucide-react';
 import type { HistoricalValues, HistoricalEntry } from '@/lib/fearGreed';
+import { zoneColors } from '@/lib/zoneColors';
 
-// ── Zone color + label ──────────────────────────────────────────────────────
-// Single source: the SAME hex drives both the badge circle and the label text,
-// and the label words use the same thresholds — so they can never disagree.
+// Same thresholds as the gauge and the backend's classify() — keep it that way.
 function zone(score: number | null): { color: string; label: string } {
-  if (score == null) return { color: '#A8A29E', label: '—'             };
-  if (score >= 75)   return { color: '#059669', label: 'Extreme Greed' };  // dark green
-  if (score >= 60)   return { color: '#10B981', label: 'Greed'         };  // green
-  if (score >= 45)   return { color: '#F59E0B', label: 'Neutral'       };  // yellow
-  if (score >= 30)   return { color: '#F97316', label: 'Fear'          };  // orange
-  return                    { color: '#E24B4A', label: 'Extreme Fear'  };  // red
+  if (score == null) return { color: '#A8A29E', label: '—' };
+  const { hex, label } = zoneColors(score);
+  return { color: hex, label };
 }
 
 // ── Score badge ───────────────────────────────────────────────────────────────

@@ -31,7 +31,7 @@ export default function TentangPage() {
           <p>
             Kedua komponen dinormalisasi ke skala 0–100 dan dibobot (asing 60%, domestik 40%).
             Skor akhir dihaluskan dengan rata-rata 3 hari untuk mengurangi noise harian.
-            Skala: 0–20 Extreme Fear · 21–40 Fear · 41–60 Neutral · 61–80 Greed · 81–100 Extreme Greed.
+            Skala: 0–24 Extreme Fear · 25–44 Fear · 45–54 Neutral · 55–74 Greed · 75–100 Extreme Greed.
           </p>
 
           <h2 className="font-semibold text-base text-[#0f172a]">Sumber Data</h2>

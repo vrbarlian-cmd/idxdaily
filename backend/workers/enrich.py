@@ -140,6 +140,14 @@ async def fetch_unenriched(conn, limit: int, ticker: str | None, force: bool = F
     Returns articles needing enrichment. Includes:
     - Articles with a primary ticker (standard enrichment)
     - Articles with ticker_id = NULL (macro articles — macro-impact only)
+
+    Rows are locked FOR UPDATE OF a ... SKIP LOCKED — if the VM and the
+    Windows fallback both call this around the same time, each claims a
+    disjoint set of articles instead of racing to enrich the same ones
+    twice. MUST be called inside an explicit transaction that stays open
+    until the claimed rows are fully processed (see run_batch()) — the
+    lock is released as soon as that transaction commits/rolls back, so a
+    bare call outside a transaction would give no real protection.
     """
     null_filter = "" if force else "AND a.ai_summary IS NULL"
     if ticker:
@@ -153,6 +161,7 @@ async def fetch_unenriched(conn, limit: int, ticker: str | None, force: bool = F
               {null_filter}
             ORDER BY a.published_at DESC
             LIMIT $2
+            FOR UPDATE OF a SKIP LOCKED
             """,
             ticker, limit,
         )
@@ -170,6 +179,7 @@ async def fetch_unenriched(conn, limit: int, ticker: str | None, force: bool = F
             WHERE 1=1 {null_filter}
             ORDER BY a.published_at DESC
             LIMIT $1
+            FOR UPDATE OF a SKIP LOCKED
             """,
             limit,
         )
@@ -677,153 +687,161 @@ async def run_batch(limit: int, ticker: str | None, force: bool = False, model: 
 
     conn = await get_conn()
     try:
-        rows = await fetch_unenriched(conn, limit, ticker, force=force)
-        label = "articles (force-rewrite)" if force else "unenriched articles"
-        print(f"[enrich] {len(rows)} {label}  [model={model}]")
+        # Whole batch runs inside one transaction so the FOR UPDATE SKIP LOCKED
+        # row locks acquired in fetch_unenriched() stay held until this batch
+        # fully commits. Without this, the lock would be released the instant
+        # the SELECT completes (asyncpg auto-commits standalone queries),
+        # giving zero real protection against two machines sharing one DB
+        # (VM + Windows fallback) racing to enrich the same rows — the whole
+        # point of adding SKIP LOCKED in the first place. See MIGRATION_LOG.md.
+        async with conn.transaction():
+            rows = await fetch_unenriched(conn, limit, ticker, force=force)
+            label = "articles (force-rewrite)" if force else "unenriched articles"
+            print(f"[enrich] {len(rows)} {label}  [model={model}]")
 
-        # Load full ticker map once for macro-impact validation
-        ticker_rows = await conn.fetch("SELECT id, symbol FROM tickers")
-        ticker_map: dict[str, str] = {r["symbol"]: r["id"] for r in ticker_rows}
-        ok = fail = 0
-        for row in rows:
-            if deadline is not None and time.time() >= deadline:
-                print(f"[enrich] Deadline reached mid-batch — stopping early. {ok} done, {fail} failed.")
-                break
+            # Load full ticker map once for macro-impact validation
+            ticker_rows = await conn.fetch("SELECT id, symbol FROM tickers")
+            ticker_map: dict[str, str] = {r["symbol"]: r["id"] for r in ticker_rows}
+            ok = fail = 0
+            for row in rows:
+                if deadline is not None and time.time() >= deadline:
+                    print(f"[enrich] Deadline reached mid-batch — stopping early. {ok} done, {fail} failed.")
+                    break
 
-            # Pre-filter: skip irrelevant articles before hitting Gemini
-            body_text = (row.get("body") or row.get("original_summary") or "")
-            if not is_market_relevant(row["title"], body_text, row.get("source", "")):
-                print(f"  [RELEVANCE SKIP] {row['title'][:80]}")
-                await save_enrichment(conn, row["id"], {
-                    "summary": "[filtered: not market relevant]",
-                    "sentiment": "NEUTRAL",
-                    "impactScore": 0.0,
-                    "category": "SKIP",
-                })
-                continue
+                # Pre-filter: skip irrelevant articles before hitting Gemini
+                body_text = (row.get("body") or row.get("original_summary") or "")
+                if not is_market_relevant(row["title"], body_text, row.get("source", "")):
+                    print(f"  [RELEVANCE SKIP] {row['title'][:80]}")
+                    await save_enrichment(conn, row["id"], {
+                        "summary": "[filtered: not market relevant]",
+                        "sentiment": "NEUTRAL",
+                        "impactScore": 0.0,
+                        "category": "SKIP",
+                    })
+                    continue
 
-            # Fetch all high/medium-confidence mentions for this article
-            mention_rows = await conn.fetch(
-                """
-                SELECT tm.ticker_id, t.symbol, t.name, t.sector
-                FROM ticker_mentions tm
-                JOIN tickers t ON t.id = tm.ticker_id
-                WHERE tm.article_id = $1
-                  AND tm.match_confidence IN ('high','medium')
-                ORDER BY CASE tm.match_confidence WHEN 'high' THEN 0 ELSE 1 END, t.symbol
-                """,
-                row["id"],
-            )
-
-            if mention_rows:
-                mention_list = [dict(m) for m in mention_rows]
-                # Ensure primary ticker is always first
-                primary_first = sorted(
-                    mention_list,
-                    key=lambda m: (0 if m["ticker_id"] == row["ticker_id"] else 1, m["symbol"]),
+                # Fetch all high/medium-confidence mentions for this article
+                mention_rows = await conn.fetch(
+                    """
+                    SELECT tm.ticker_id, t.symbol, t.name, t.sector
+                    FROM ticker_mentions tm
+                    JOIN tickers t ON t.id = tm.ticker_id
+                    WHERE tm.article_id = $1
+                      AND tm.match_confidence IN ('high','medium')
+                    ORDER BY CASE tm.match_confidence WHEN 'high' THEN 0 ELSE 1 END, t.symbol
+                    """,
+                    row["id"],
                 )
-            else:
-                # No junction rows — fall back to article's own ticker
-                primary_first = [{
-                    "ticker_id": row["ticker_id"],
-                    "symbol": row["symbol"],
-                    "name": row["name"],
-                    "sector": row["sector"],
-                }]
 
-            primary_tid = row["ticker_id"]
-            primary_saved = False
-            last_category = "GENERAL"   # track category from primary enrichment
-            article_filtered = False
+                if mention_rows:
+                    mention_list = [dict(m) for m in mention_rows]
+                    # Ensure primary ticker is always first
+                    primary_first = sorted(
+                        mention_list,
+                        key=lambda m: (0 if m["ticker_id"] == row["ticker_id"] else 1, m["symbol"]),
+                    )
+                else:
+                    # No junction rows — fall back to article's own ticker
+                    primary_first = [{
+                        "ticker_id": row["ticker_id"],
+                        "symbol": row["symbol"],
+                        "name": row["name"],
+                        "sector": row["sector"],
+                    }]
 
-            is_macro_article = (row["symbol"] == "_MACRO_")  # NULL-ticker article
+                primary_tid = row["ticker_id"]
+                primary_saved = False
+                last_category = "GENERAL"   # track category from primary enrichment
+                article_filtered = False
 
-            if is_macro_article:
-                # Pure macro article — no direct ticker mentions to enrich.
-                # Skip standard per-ticker loop; go straight to macro-impact.
-                pass
-            else:
-                for m in primary_first:
-                    enrich_row = {**row, "symbol": m["symbol"], "name": m["name"], "sector": m["sector"]}
-                    print(f"  -> [{m['symbol']}] {row['title'][:55]} ...")
-                    try:
-                        result = call_gemini(api_key, enrich_row, model=model)
+                is_macro_article = (row["symbol"] == "_MACRO_")  # NULL-ticker article
 
-                        # Gemini relevance gate rejection
-                        if result.get("_filtered"):
-                            print(f"     [GEMINI REJECT] {row['title'][:80]}")
-                            await save_enrichment(conn, row["id"], result)
-                            article_filtered = True
-                            break
-
-                        # Save per-ticker summary into ticker_mentions
-                        await save_mention_enrichment(conn, row["id"], m["ticker_id"], result)
-
-                        # Sync the PRIMARY ticker's result to articles (article-level fallback)
-                        if m["ticker_id"] == primary_tid and not primary_saved:
-                            await save_enrichment(conn, row["id"], result)
-                            primary_saved = True
-                            last_category = result.get("category", "GENERAL")
-
-                        print(
-                            f"     sentiment={result.get('sentiment')}  "
-                            f"impact={result.get('impactScore')}  "
-                            f"category={result.get('category')}"
-                        )
-                        ok += 1
-                    except Exception as exc:
-                        print(f"     [WARN] Gemini failed for {m['symbol']}: {exc}")
-                        fail += 1
-                    if delay > 0:
-                        time.sleep(delay)
-
-            # ── Macro-impact analysis ──────────────────────────────────────────
-            # Run for:
-            #   (a) Pure macro articles (NULL ticker_id) — always
-            #   (b) Direct-ticker articles classified as MACRO/REGULATORY/SECTOR
-            # Skip if article was filtered by pre-filter or Gemini relevance gate
-            run_macro = not article_filtered and (is_macro_article or last_category in ("MACRO", "REGULATORY", "SECTOR"))
-
-            if run_macro:
-                existing_symbols = [m["symbol"] for m in primary_first] if not is_macro_article else []
-                existing_tids    = {m["ticker_id"] for m in primary_first} if not is_macro_article else set()
-
-                # For macro articles, first infer category from title/snippet via standard call
-                macro_row = dict(row)
                 if is_macro_article:
-                    macro_row["symbol"] = "IHSG"
-                    macro_row["name"]   = "Pasar Umum"
-                    macro_row["sector"] = "Market"
-                    # Classify the article to get its category
+                    # Pure macro article — no direct ticker mentions to enrich.
+                    # Skip standard per-ticker loop; go straight to macro-impact.
+                    pass
+                else:
+                    for m in primary_first:
+                        enrich_row = {**row, "symbol": m["symbol"], "name": m["name"], "sector": m["sector"]}
+                        print(f"  -> [{m['symbol']}] {row['title'][:55]} ...")
+                        try:
+                            result = call_gemini(api_key, enrich_row, model=model)
+
+                            # Gemini relevance gate rejection
+                            if result.get("_filtered"):
+                                print(f"     [GEMINI REJECT] {row['title'][:80]}")
+                                await save_enrichment(conn, row["id"], result)
+                                article_filtered = True
+                                break
+
+                            # Save per-ticker summary into ticker_mentions
+                            await save_mention_enrichment(conn, row["id"], m["ticker_id"], result)
+
+                            # Sync the PRIMARY ticker's result to articles (article-level fallback)
+                            if m["ticker_id"] == primary_tid and not primary_saved:
+                                await save_enrichment(conn, row["id"], result)
+                                primary_saved = True
+                                last_category = result.get("category", "GENERAL")
+
+                            print(
+                                f"     sentiment={result.get('sentiment')}  "
+                                f"impact={result.get('impactScore')}  "
+                                f"category={result.get('category')}"
+                            )
+                            ok += 1
+                        except Exception as exc:
+                            print(f"     [WARN] Gemini failed for {m['symbol']}: {exc}")
+                            fail += 1
+                        if delay > 0:
+                            time.sleep(delay)
+
+                # ── Macro-impact analysis ──────────────────────────────────────────
+                # Run for:
+                #   (a) Pure macro articles (NULL ticker_id) — always
+                #   (b) Direct-ticker articles classified as MACRO/REGULATORY/SECTOR
+                # Skip if article was filtered by pre-filter or Gemini relevance gate
+                run_macro = not article_filtered and (is_macro_article or last_category in ("MACRO", "REGULATORY", "SECTOR"))
+
+                if run_macro:
+                    existing_symbols = [m["symbol"] for m in primary_first] if not is_macro_article else []
+                    existing_tids    = {m["ticker_id"] for m in primary_first} if not is_macro_article else set()
+
+                    # For macro articles, first infer category from title/snippet via standard call
+                    macro_row = dict(row)
+                    if is_macro_article:
+                        macro_row["symbol"] = "IHSG"
+                        macro_row["name"]   = "Pasar Umum"
+                        macro_row["sector"] = "Market"
+                        # Classify the article to get its category
+                        try:
+                            cls_result = call_gemini(api_key, macro_row, model=model)
+                            last_category = cls_result.get("category", "MACRO")
+                            # Save article-level enrichment
+                            await save_enrichment(conn, row["id"], cls_result)
+                            ok += 1
+                            print(f"  -> [MACRO] {row['title'][:55]} ...")
+                            print(f"     category={last_category}  sentiment={cls_result.get('sentiment')}")
+                        except Exception as exc:
+                            print(f"  -> [MACRO] [WARN] classification failed: {exc}")
+                            fail += 1
+
+                    # Now run macro-impact to identify affected tickers
                     try:
-                        cls_result = call_gemini(api_key, macro_row, model=model)
-                        last_category = cls_result.get("category", "MACRO")
-                        # Save article-level enrichment
-                        await save_enrichment(conn, row["id"], cls_result)
-                        ok += 1
-                        print(f"  -> [MACRO] {row['title'][:55]} ...")
-                        print(f"     category={last_category}  sentiment={cls_result.get('sentiment')}")
+                        macro_row_for_impact = {**row, "category": last_category, "body": row.get("body")}
+                        affected = call_gemini_macro_impact(api_key, macro_row_for_impact, existing_symbols, model=model)
+                        if affected:
+                            n = await save_macro_impact_mentions(
+                                conn, row["id"], affected, ticker_map, existing_tids, last_category
+                            )
+                            syms = [t["symbol"] for t in affected if t.get("symbol") in ticker_map]
+                            print(f"     [macro-impact] {n}/{len(affected)} tickers saved: {', '.join(syms[:8])}")
+                        else:
+                            print(f"     [macro-impact] no affected tickers identified")
                     except Exception as exc:
-                        print(f"  -> [MACRO] [WARN] classification failed: {exc}")
-                        fail += 1
+                        print(f"     [macro-impact] [WARN] failed: {exc}")
 
-                # Now run macro-impact to identify affected tickers
-                try:
-                    macro_row_for_impact = {**row, "category": last_category, "body": row.get("body")}
-                    affected = call_gemini_macro_impact(api_key, macro_row_for_impact, existing_symbols, model=model)
-                    if affected:
-                        n = await save_macro_impact_mentions(
-                            conn, row["id"], affected, ticker_map, existing_tids, last_category
-                        )
-                        syms = [t["symbol"] for t in affected if t.get("symbol") in ticker_map]
-                        print(f"     [macro-impact] {n}/{len(affected)} tickers saved: {', '.join(syms[:8])}")
-                    else:
-                        print(f"     [macro-impact] no affected tickers identified")
-                except Exception as exc:
-                    print(f"     [macro-impact] [WARN] failed: {exc}")
-
-        total_articles = len(rows)
-        print(f"[enrich] Done - {ok} summaries across {total_articles} articles ({fail} failed)")
+            total_articles = len(rows)
+            print(f"[enrich] Done - {ok} summaries across {total_articles} articles ({fail} failed)")
     finally:
         await conn.close()
 

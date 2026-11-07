@@ -722,7 +722,19 @@ async def run_once(
     use_google_news: bool = False,
     gn_tier: str = "tag",  # "tag" | "big" | "small" | "all"
     skip_enabled: bool = False,  # SmallcapSweep: query only ticker_tag_enabled=FALSE
+    only_sources: set[str] | None = None,   # if set, run ONLY these named RSS/HTML sources
+    exclude_sources: set[str] | None = None,  # if set, run every source EXCEPT these
 ) -> None:
+    if only_sources and exclude_sources:
+        raise ValueError("only_sources and exclude_sources are mutually exclusive")
+
+    def _source_enabled(name: str) -> bool:
+        if only_sources is not None:
+            return name in only_sources
+        if exclude_sources is not None:
+            return name not in exclude_sources
+        return True
+
     # ── Phase 1: Load ticker metadata (quick DB round-trip) ──────────────────
     # Open and immediately close the connection so scraping (which can take
     # 5+ minutes for Google News across 94+ tickers) doesn't idle out the
@@ -772,6 +784,8 @@ async def run_once(
 
     # ── Sources 2+: General RSS feeds ────────────────────────────────────
     for feed in FEEDS:
+        if not _source_enabled(feed["name"]):
+            continue
         items = fetch_rss(feed, limit=rss_limit)
         print(f"[ingest] RSS {feed['name']}: {len(items)} fetched")
         all_articles.extend(items)
@@ -782,6 +796,8 @@ async def run_once(
         ("Bisnis.com",  fetch_bisnis),
         ("Emiten News", fetch_emitennews),
     ]:
+        if not _source_enabled(name):
+            continue
         items = fn(limit=rss_limit)
         print(f"[ingest] HTML {name}: {len(items)} fetched")
         all_articles.extend(items)
@@ -989,36 +1005,71 @@ import sys as _sys
 _LOCKFILE = PROJECT_ROOT / "logs" / "ingest.lock"
 
 
+_LOCK_MAX_AGE_SECONDS = 20 * 60  # matches the 15-min cron cadence + margin
+
+
+def _pid_is_alive(pid: int) -> bool:
+    """Cross-platform PID liveness check.
+
+    Windows: os.kill raises SystemError (not OSError) for dead PIDs in some
+    Python builds, so tasklist is used instead. Linux/macOS: os.kill(pid, 0)
+    is the standard POSIX liveness probe (raises ProcessLookupError/OSError
+    for dead PIDs, PermissionError if alive but owned by another user).
+    """
+    if _sys.platform == "win32":
+        try:
+            import subprocess as _sp
+            result = _sp.run(
+                ['tasklist', '/FI', f'PID eq {pid}', '/NH'],
+                capture_output=True, text=True, timeout=5,
+            )
+            return str(pid) in result.stdout
+        except Exception:
+            return False  # tasklist unavailable/timed out — treat as dead
+    else:
+        try:
+            _os.kill(pid, 0)
+            return True
+        except ProcessLookupError:
+            return False
+        except PermissionError:
+            return True  # alive, just owned by another user
+        except OSError:
+            return False
+
+
 def _acquire_lock() -> None:
     """
     Write a PID lockfile so a second ingest process can detect the first
     and exit cleanly instead of running concurrently.
 
-    If the lockfile exists but the recorded PID is no longer alive (stale
-    lock from a crash or sleep/shutdown), the old file is silently overwritten.
-
-    Uses Windows tasklist instead of os.kill(pid, 0): on Windows, os.kill
-    raises SystemError (not OSError) for dead PIDs in some Python builds,
-    which bypassed the stale-lock handler and blocked all subsequent runs.
+    Two independent staleness checks, either of which clears the lock:
+      1. PID liveness (see _pid_is_alive) — catches crashes.
+      2. Lock file age > _LOCK_MAX_AGE_SECONDS — catches hangs, where the
+         process is still technically alive but has been stuck for far
+         longer than any real ingest run should take. This was added after
+         an incident where a hung (not crashed) process held the lock for
+         28+ hours, silently blocking every scheduled run in between.
     """
     if _LOCKFILE.exists():
         try:
-            pid = int(_LOCKFILE.read_text().strip())
-        except (ValueError, OSError):
-            pass  # unreadable — treat as stale
+            import time as _time
+            age_seconds = _time.time() - _LOCKFILE.stat().st_mtime
+        except OSError:
+            age_seconds = 0  # unreadable stat — don't treat as stale on this basis alone
+
+        if age_seconds > _LOCK_MAX_AGE_SECONDS:
+            print(f"[ingest] Lock is {age_seconds/60:.1f} min old (> {_LOCK_MAX_AGE_SECONDS/60:.0f} min limit) — treating as stale.")
         else:
             try:
-                import subprocess as _sp
-                result = _sp.run(
-                    ['tasklist', '/FI', f'PID eq {pid}', '/NH'],
-                    capture_output=True, text=True, timeout=5,
-                )
-                if str(pid) in result.stdout:
+                pid = int(_LOCKFILE.read_text().strip())
+            except (ValueError, OSError):
+                pass  # unreadable — treat as stale
+            else:
+                if _pid_is_alive(pid):
                     print(f"[ingest] Already running (PID {pid}) — exiting to avoid concurrent run.")
                     _sys.exit(0)
-                # PID absent from tasklist → process is dead → stale lock, proceed
-            except Exception:
-                pass  # tasklist unavailable or timed out — treat as stale, proceed
+                # PID dead → stale lock, proceed
     _LOCKFILE.write_text(str(_os.getpid()))
 
 
@@ -1062,10 +1113,33 @@ def main() -> None:
                 "Overrides --gn-tier when set."
             ),
         )
+        parser.add_argument(
+            "--only-sources",
+            default=None,
+            help=(
+                "Comma-separated RSS/HTML source names — run ONLY these, skip everything "
+                "else (Google News and ticker-tags are unaffected by this filter, gate "
+                "them off separately by omitting --google-news/--ticker-tags). "
+                "Mutually exclusive with --exclude-sources."
+            ),
+        )
+        parser.add_argument(
+            "--exclude-sources",
+            default=None,
+            help=(
+                "Comma-separated RSS/HTML source names to skip, running every other "
+                "source as normal. Mutually exclusive with --only-sources."
+            ),
+        )
         args = parser.parse_args()
+
+        only_sources = set(s.strip() for s in args.only_sources.split(",")) if args.only_sources else None
+        exclude_sources = set(s.strip() for s in args.exclude_sources.split(",")) if args.exclude_sources else None
+
         asyncio.run(run_once(
             args.limit, args.ticker_tags, args.google_news,
             args.gn_tier, args.skip_enabled,
+            only_sources=only_sources, exclude_sources=exclude_sources,
         ))
     finally:
         _release_lock()

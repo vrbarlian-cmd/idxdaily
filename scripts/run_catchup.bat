@@ -7,6 +7,7 @@ REM   2. Last-resort daily gate (check_today_count.py) -- run if <10 articles to
 
 set PROJECT=C:\Users\Vito\OneDrive\Documents\AI News
 set LOGFILE=C:\ProgramData\IDXDaily\logs\catchup.log
+set PYTHONIOENCODING=utf-8
 
 pushd "%PROJECT%"
 

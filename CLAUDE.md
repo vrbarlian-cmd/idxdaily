@@ -4,6 +4,20 @@ DailyIHSG (https://dailyihsg.com) is an Indonesian stock-market news site with a
 IHSG Fear & Greed Index. The owner is not a programmer: explain things in plain,
 simple English (they sometimes write in Indonesian/English mix).
 
+## Git sync (ALWAYS — the owner works from both a home PC and a laptop)
+
+- **At the start of every session, and whenever the owner comes back to continue
+  a chat**, run `git pull origin main` in this folder before doing anything
+  else, and tell the owner in one line whether anything new came in. If the
+  pull fails (conflict, uncommitted changes), stop and explain in plain words.
+- **After every change to files in this repo**, commit and push right away
+  (`git push origin main`) without being asked, and tell the owner it was
+  pushed. Stage only the files you changed (never `git add -A`), and never
+  commit `.env.local` or anything with passwords/keys.
+- Pushing to `main` makes Vercel rebuild the live website. For website (UI)
+  changes, check them on the local dev server first, then push.
+- Daily data entry only writes to the database, not to files, so it needs no push.
+
 ## Daily data entry (the main job on a laptop)
 
 The owner pastes daily market data from idx.co.id: IHSG close, Foreign Buy/Sell,
@@ -50,7 +64,7 @@ Fear & Greed labels: <25 Extreme Fear, <45 Fear, <55 Neutral, <75 Greed, ≥75 E
 - Do not use `backend/scripts/backfill_fear_greed.py` (old method). To recompute
   history use `python -m backend.workers.compute_index --backfill --from YYYY-MM-DD --to YYYY-MM-DD`,
   after backing up the `fear_greed_index` table.
-- Stage specific files only (never `git add -A`). Run `git pull` before starting work.
+- Stage specific files only (never `git add -A`).
 
 ## Quick reference
 

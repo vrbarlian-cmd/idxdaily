@@ -592,11 +592,10 @@ async def run(days: int, as_of: date | None = None, quiet: bool = False,
         else:
             smoothed_score = prev_smoothed   # carry forward if today has no score
 
-        # Classify based on smoothed score for display
+        # Classify based on smoothed score for display — the label must always
+        # match the score the site shows, not the raw (pre-smoothing) score.
         display_score = smoothed_score
-        display_label = label if raw_score is not None else "Data Tidak Cukup"
-        if display_score is not None and raw_score is None:
-            display_label = classify(display_score)  # re-classify from smoothed
+        display_label = classify(display_score)
 
         result = {
             "raw_score":         raw_score,

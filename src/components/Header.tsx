@@ -66,6 +66,20 @@ export default function Header({ market }: HeaderProps) {
           </div>
         )}
       </div>
+
+      {/* Phones: compact market strip under the logo row */}
+      {market && (
+        <div className="md:hidden border-t border-[#f0ede8] bg-[#fbfaf8]">
+          <div className="px-4 h-8 flex items-center justify-center divide-x divide-[#e5e2db]">
+            <MarketPill
+              label="IHSG"
+              value={fmt(market.ihsgValue)}
+              change={market.ihsgChangePercent}
+            />
+            <MarketPill label="USD/IDR" value={fmt(market.usdIdr)} />
+          </div>
+        </div>
+      )}
     </header>
   );
 }

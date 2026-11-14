@@ -76,10 +76,10 @@ export default function HeroSearch({ popularTickers }: Props) {
 
   return (
     <section className="border-b border-[#e5e2db] bg-[#f8f7f4]">
-      <div className="max-w-5xl mx-auto px-4 py-5 text-center">
+      <div className="max-w-5xl mx-auto px-4 py-4 md:py-5 text-center">
 
         {/* Search bar with autocomplete */}
-        <div ref={containerRef} className="relative max-w-sm mx-auto mb-4">
+        <div ref={containerRef} className="relative max-w-sm mx-auto mb-3 md:mb-4">
           <form onSubmit={handleSubmit} className="flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9ca3af] pointer-events-none" />
@@ -131,9 +131,12 @@ export default function HeroSearch({ popularTickers }: Props) {
           )}
         </div>
 
-        {/* Popular tickers */}
-        <div className="flex flex-wrap items-center justify-center gap-1.5">
-          <span className="text-xs text-[#9ca3af] mr-0.5">Populer:</span>
+        {/* Popular tickers — one swipeable row on phones, wrapped on desktop */}
+        <div
+          className="-mx-4 px-4 md:mx-0 md:px-0 flex md:flex-wrap items-center md:justify-center gap-1.5 overflow-x-auto [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          <span className="text-xs text-[#9ca3af] mr-0.5 flex-shrink-0">Populer:</span>
           {popularTickers.map((sym) => (
             <Link
               key={sym}
@@ -145,7 +148,7 @@ export default function HeroSearch({ popularTickers }: Props) {
                   body:    JSON.stringify({ symbol: sym }),
                 }).catch(() => {});
               }}
-              className="font-mono text-xs font-bold bg-white hover:bg-blue-50 border border-[#e5e2db] hover:border-blue-300 text-[#374151] hover:text-[#1a56db] rounded-full px-3 py-1 transition-all duration-150"
+              className="flex-shrink-0 font-mono text-xs font-bold bg-white hover:bg-blue-50 border border-[#e5e2db] hover:border-blue-300 text-[#374151] hover:text-[#1a56db] rounded-full px-3 py-1.5 md:py-1 transition-all duration-150"
             >
               {sym}
             </Link>

@@ -19,7 +19,7 @@ function GaugeSVG({ score, isNull }: { score: number; isNull: boolean }) {
   const tipFs   = tipText.length > 2 ? 8 : 10;
 
   return (
-    <svg viewBox="0 0 300 170" className="w-full" aria-hidden="true">
+    <svg viewBox="0 0 300 170" className="w-full max-w-[260px] md:max-w-none mx-auto block" aria-hidden="true">
       <defs>
         <linearGradient id="arcGrad" gradientUnits="userSpaceOnUse" x1="30" y1="0" x2="270" y2="0">
           <stop offset="0%"   stopColor="#ef4444" />
@@ -177,7 +177,7 @@ export default function FearGreedGauge({
   const { text, bg, hex } = zoneColors(data.score);
 
   return (
-    <div className="bg-white border border-stone-200 rounded-2xl p-5 shadow-sm">
+    <div className="bg-white border border-stone-200 rounded-2xl p-4 md:p-5 shadow-sm">
       {/* Card header */}
       <div className="flex items-start justify-between">
         <div>
@@ -227,7 +227,7 @@ export default function FearGreedGauge({
           />
         )}
         <p
-          className="text-5xl font-bold leading-none tabular-nums relative"
+          className="text-4xl md:text-5xl font-bold leading-none tabular-nums relative"
           style={data.score != null ? {
             color: hex,
             filter: `drop-shadow(0 0 6px ${hex}55)`,

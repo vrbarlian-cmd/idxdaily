@@ -203,7 +203,9 @@ export default function FearGreedChart() {
   const ihsgMin = ihsgValues.length ? Math.floor(Math.min(...ihsgValues) * 0.993 / 50) * 50 : 5000;
   const ihsgMax = ihsgValues.length ? Math.ceil(Math.max(...ihsgValues) * 1.007 / 50) * 50  : 8000;
 
-  const xInterval = chartData.length > 60 ? Math.floor(chartData.length / 10)
+  // Phones get ~4 date labels so they never overlap at ~390px wide.
+  const xInterval = isMobile && chartData.length > 8 ? Math.floor(chartData.length / 4)
+                  : chartData.length > 60 ? Math.floor(chartData.length / 10)
                   : chartData.length > 30 ? Math.floor(chartData.length / 8)
                   : 'preserveStartEnd';
 
@@ -232,13 +234,13 @@ export default function FearGreedChart() {
           <StatItem
             label="High"
             value={rangeStats.high != null ? Math.round(rangeStats.high) : null}
-            sub={rangeStats.highDate ? formatDateShort(rangeStats.highDate) : undefined}
+            sub={rangeStats.highDate && !isMobile ? formatDateShort(rangeStats.highDate) : undefined}
             color="#047857"
           />
           <StatItem
             label="Low"
             value={rangeStats.low != null ? Math.round(rangeStats.low) : null}
-            sub={rangeStats.lowDate ? formatDateShort(rangeStats.lowDate) : undefined}
+            sub={rangeStats.lowDate && !isMobile ? formatDateShort(rangeStats.lowDate) : undefined}
             color="#b91c1c"
           />
         </div>
@@ -265,7 +267,7 @@ export default function FearGreedChart() {
       {/* ── Chart ─────────────────────────────────────────────────────────── */}
       {hasData && (
         <div className="px-2 pb-4 pt-1">
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={isMobile ? 190 : 220}>
             <ComposedChart data={chartData} margin={{ top: 4, right: isMobile ? 8 : 52, bottom: 0, left: 0 }}>
 
               {/*
@@ -298,6 +300,7 @@ export default function FearGreedChart() {
                 tickLine={false}
                 axisLine={false}
                 interval={xInterval}
+                minTickGap={isMobile ? 24 : 5}
               />
               <YAxis
                 yAxisId="fg"

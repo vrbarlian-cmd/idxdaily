@@ -131,7 +131,7 @@ export default async function TrendingTickers({ currentTicker }: { currentTicker
           </p>
           <h2 className="text-sm font-bold text-[#0f172a]">Trending Tickers</h2>
         </div>
-        <span className="text-[11px] text-[#9ca3af]">volume berita</span>
+        <span className="text-[11px] text-[#9ca3af]">geser →</span>
       </div>
 
       <hr className="border-[#e5e2db] mb-4" />
@@ -182,7 +182,7 @@ export default async function TrendingTickers({ currentTicker }: { currentTicker
                     {ticker.symbol}
                   </span>
                   <span className="text-[10px] text-[#9ca3af] tabular-nums font-medium">
-                    {count}
+                    {count} berita
                   </span>
                 </div>
 

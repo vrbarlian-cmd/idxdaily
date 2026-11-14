@@ -416,6 +416,21 @@ def _build_shared_aliases(entries: list[AliasEntry]) -> set[str]:
 ConfidenceEntry = tuple[str, str]  # (ticker_id, confidence)
 
 
+def _alias_only_inside_longer(alias_u: str, upper: str, entries: list[AliasEntry], tid: str) -> bool:
+    """True if every occurrence of `alias_u` in `upper` is part of a LONGER alias
+    belonging to another ticker — e.g. "BUMI RESOURCES" inside
+    "BUMI RESOURCES MINERALS" (BRMS) must not tag BUMI."""
+    longer_hits = 0
+    for _sym, other_tid, _skip, other_aliases in entries:
+        if other_tid == tid:
+            continue
+        for other in other_aliases:
+            other_u = other.upper()
+            if len(other_u) > len(alias_u) and alias_u in other_u:
+                longer_hits += upper.count(other_u)
+    return longer_hits > 0 and upper.count(alias_u) <= longer_hits
+
+
 def detect_tickers(
     text: str,
     entries: list[AliasEntry],
@@ -425,6 +440,10 @@ def detect_tickers(
     Returns list of (ticker_id, confidence) matched in `text`.
     Each ticker is matched at most once; the highest confidence found wins.
     """
+    # Ticker CODES are matched case-sensitively against the original text:
+    # news always writes codes in capitals (BBCA, ANDI), while the same letters
+    # in normal case are ordinary words or names ("Andi Amran", "Chandra Asri",
+    # "Yupi Indo", "Raja Roti"). Aliases are still matched case-insensitively.
     padded = f" {text} "
     upper  = padded.upper()
 
@@ -440,14 +459,14 @@ def detect_tickers(
         # ── 1. High: symbol code appears as a word ─────────────────────────
         if not skip_tag:
             for sep_after in (" ", ",", ".", ":", ";", ")", "\n"):
-                if f" {symbol}{sep_after}" in upper:
+                if f" {symbol}{sep_after}" in padded or f"({symbol}{sep_after}" in padded:
                     confidence = "high"
                     break
 
         # ── 2. Medium / Low: alias match ───────────────────────────────────
         if confidence is None:
             for alias in aliases:
-                if alias.upper() in upper:
+                if alias.upper() in upper and not _alias_only_inside_longer(alias.upper(), upper, entries, tid):
                     tier = "low" if alias.lower() in shared_aliases else "medium"
                     # Take the best tier found across all aliases
                     if confidence is None or tier == "medium":
@@ -468,7 +487,7 @@ def detect_tickers(
             # AND there are no higher-confidence matches (avoid noise)
             sym = next((s for s, i, _, _ in entries if i == tid), "")
             code_present = any(
-                f" {sym}{sep}" in upper
+                f" {sym}{sep}" in padded or f"({sym}{sep}" in padded
                 for sep in (" ", ",", ".", ":", ";", ")", "\n")
             )
             if has_high_or_medium and not code_present:

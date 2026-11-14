@@ -78,7 +78,7 @@
 
   "_known_good_with_extra_slugs": "--- Tickers we want AND extra brand name aliases ---",
 
-  "GOTO": { "skip_symbol_tag": false, "name_slugs": ["GoTo Gojek Tokopedia", "Gojek Tokopedia", "GoTo Group"] },
+  "GOTO": { "skip_symbol_tag": false, "name_slugs": ["GoTo Gojek Tokopedia", "Gojek Tokopedia", "GoTo Group", "GoTo"] },
   "MEDC": { "skip_symbol_tag": false, "name_slugs": ["Medco Energi", "MedcoEnergi"] },
   "INCO": { "skip_symbol_tag": false, "name_slugs": ["Vale Indonesia", "PT Vale"] },
   "ISAT": { "skip_symbol_tag": false, "name_slugs": ["Indosat Ooredoo", "Indosat"] },
@@ -95,5 +95,7 @@
   "BJTM": { "skip_symbol_tag": false, "exact_aliases": ["Bank Jatim", "Bank Jawa Timur"] },
   "BEKS": { "skip_symbol_tag": false, "exact_aliases": ["Bank Banten"] },
   "DPNS": { "skip_symbol_tag": false, "exact_aliases": ["Duta Pertiwi Nusantara"] },
-  "BRMS": { "skip_symbol_tag": false, "exact_aliases": ["Bumi Resources Minerals"] }
+  "BRMS": { "skip_symbol_tag": false, "exact_aliases": ["Bumi Resources Minerals"] },
+  "FORU": { "skip_symbol_tag": false, "exact_aliases": ["Fortune Indonesia Tbk"] },
+  "JMAS": { "skip_symbol_tag": false, "exact_aliases": ["Jasa Mitra Abadi", "Asuransi Jiwa Syariah Jasa Mitra Abadi"] }
 }

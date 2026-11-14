@@ -4,7 +4,8 @@ Google News RSS per-ticker scraper.
 Strategy:
   - For each ticker_tag_enabled ticker, query Google News RSS using the
     company's best short name (first alias → strip "Tbk" from official name).
-  - Tag ALL results as `detected_ticker = <symbol>` — no cross-detection.
+  - Tag ALL results as `detected_ticker = <symbol>` — no cross-detection —
+  except results where the company name only matches the publisher's name.
     Google News already ensures the results are about that company.
   - Resolve Google redirect URLs so the DB stores the real article URL.
   - Applies a polite inter-request delay (default 3s) to avoid rate limits.
@@ -171,6 +172,16 @@ def fetch_google_news_ticker(
 
         # Strip HTML from description snippet
         snippet = re.sub(r"<[^>]+>", "", desc).strip()[:500]
+
+        # Publisher-name collision guard: a query like "Fortune Indonesia"
+        # (FORU) also matches every article published BY "FORTUNE Indonesia".
+        # If the company name only appears as the publisher, skip the result
+        # unless the ticker code itself is in the headline.
+        if query_name.lower() in publisher.lower():
+            check = re.sub(re.escape(publisher), " ", f" {clean_title} {snippet} ", flags=re.IGNORECASE)
+            if not re.search(rf"\b{re.escape(symbol.upper())}\b", clean_title) \
+                    and query_name.lower() not in check.lower():
+                continue
 
         results.append({
             "title":           clean_title,

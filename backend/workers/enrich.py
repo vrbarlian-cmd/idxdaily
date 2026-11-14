@@ -61,6 +61,10 @@ REQUIRED_MARKET_KEYWORDS = [
     "fed", "federal reserve", "fomc", "powell", "jerome", "rate hike", "rate cut",
     "nfp", "non-farm", "cpi", "inflation", "dxy", "dollar index", "vix",
     "china pmi", "china gdp", "china manufacturing",
+    "wall street", "s&p 500", "nasdaq", "dow jones", "stocks", "treasury", "yield",
+    "boj", "bank of japan", "ecb", "yen", "tariff", "tarif",
+    "anthropic", "openai", "spacex", "nvidia",
+    "war", "perang", "iran", "israel", "ukraine", "ukraina", "geopolit",
     # Commodities (English + Indonesian)
     "crude oil", "brent", "wti", "coal", "newcastle", "cpo", "palm oil", "nickel",
     "copper", "gold", "emas",
@@ -392,7 +396,7 @@ Contoh lain yang BENAR untuk berita korporasi:
 USER_TEMPLATE = """RELEVANCE GATE: Before writing any analysis, determine if this article is genuinely relevant to Indonesian capital markets through one of these three pillars:
 
 1. Domestic Indonesia macro: Bank Indonesia policy, BPS data (inflation/GDP), trade balance, fiscal policy (APBN, tax)
-2. Global macro that moves IDX: US Fed decisions, US CPI/NFP, China PMI/GDP, USD/IDR, DXY, VIX, commodity prices (oil, coal, CPO, nickel)
+2. Global macro that moves IDX: US Fed decisions, US CPI/NFP, China PMI/GDP, USD/IDR, DXY, VIX, commodity prices (oil, gold, coal, CPO, nickel), other central banks (BOJ, ECB, PBOC) and the yen, US stock market moves (Wall Street, S&P 500, Nasdaq, Dow, big tech/AI stocks), major global IPOs (e.g. Anthropic, OpenAI, SpaceX), wars and geopolitical events that move oil, gold or risk appetite, global index providers (MSCI, FTSE Russell) and rating agencies (Fitch, Moody's, S&P, Pefindo), US Treasury yields and tariffs/trade wars. These are relevant even when the article does not mention Indonesia — they drive foreign flows into IDX.
 3. IDX market/corporate: Foreign flow data, earnings or corporate actions of any IDX-listed emiten (including but not limited to BBCA/BBRI/BMRI/BBNI/TLKM/ASII), OJK/IDX regulatory changes, IPO announcements (Penawaran Umum/IPO), rights issues, bond issuances (obligasi/sukuk), dividends, mergers & acquisitions, and any news about specific IDX ticker symbols.
 
 IMPORTANT: Any article mentioning a specific IDX ticker symbol (e.g. GPRA, DSSA, JECX, JELI) or containing Indonesian corporate terms (emiten, perseroan, tbk, kinerja, laba, transaksi jumbo) is almost certainly Pillar 3 relevant. Do NOT reject these.

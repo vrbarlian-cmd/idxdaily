@@ -69,6 +69,10 @@ FEEDS = [
     {"name": "Detik Finance",     "url": "https://finance.detik.com/rss"},
     {"name": "CNBC Indonesia",    "url": "https://www.cnbcindonesia.com/market/rss"},
     {"name": "Kontan",            "url": "https://investasi.kontan.co.id/rss"},
+    # Kontan's premium "Insight" section (headline + teaser only; paywalled
+    # body). Reachable from the VM, unlike investasi.kontan.co.id (403 there),
+    # so it is a separate source name and runs on the VM schedule.
+    {"name": "Kontan Insight",    "url": "https://insight.kontan.co.id/rss", "max_items": 15},
     {"name": "Katadata",          "url": "https://katadata.co.id/rss"},
     {"name": "Bloomberg Technoz", "url": "https://www.bloombergtechnoz.com/rss/market", "max_items": 20},
     # ── Global macro sources (lower item cap — high-volume feeds) ─────────────
@@ -569,7 +573,15 @@ async def load_all_ticker_rows(conn, tier: str = "all") -> list[dict]:
 
 
 async def article_exists(conn, url: str) -> bool:
-    row = await conn.fetchrow("SELECT 1 FROM articles WHERE url = $1", url)
+    # http:// and https:// versions of a link are the same article (Kontan
+    # Insight's RSS uses http://, a manually added link is usually https://).
+    if url.startswith("http://"):
+        alt = "https://" + url[len("http://"):]
+    elif url.startswith("https://"):
+        alt = "http://" + url[len("https://"):]
+    else:
+        alt = url
+    row = await conn.fetchrow("SELECT 1 FROM articles WHERE url = $1 OR url = $2", url, alt)
     return row is not None
 
 
@@ -667,6 +679,13 @@ MACRO_KEYWORDS: list[str] = [
     "trade war", "us tariff", "global recession", "commodity price", "china gdp",
     # Geopolitics (oil-price shock risk; shipping-route disruptions)
     "iran", "middle east", "strait of hormuz",
+    # ── Index providers, regulators & market structure ───────────────────────
+    # Without these, MSCI/OJK/BEI stories that name no ticker code were dropped
+    # (e.g. "Untuk Meyakinkan MSCI, Otoritas Bursa Siap Terbitkan Sanksi Baru").
+    "msci", "ftse", "emerging market", "free float",
+    "ojk", "otoritas jasa keuangan", "otoritas bursa", "bursa efek indonesia",
+    "pasar modal", "manipulasi pasar", "ihsg",
+    "the fed", "wall street",
 ]
 
 _MACRO_KEYWORDS_LOWER = [kw.lower() for kw in MACRO_KEYWORDS]

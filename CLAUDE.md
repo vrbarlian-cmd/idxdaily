@@ -63,6 +63,25 @@ Rules:
 
 Fear & Greed labels: <25 Extreme Fear, <45 Fear, <55 Neutral, <75 Greed, ≥75 Extreme Greed.
 
+## Adding an important article by hand
+
+When the owner pastes a news link (often seen first on WhatsApp) and asks to put
+it on the site:
+
+```
+python -m backend.scripts.add_article --url <link> --dry-run   # check first
+python -m backend.scripts.add_article --url <link>
+```
+
+- It detects tickers like the collector does; with none it is saved as market news.
+- If the page can't be read (paywall/blocked), add `--title "..."` and `--summary "..."`
+  from what the owner pasted.
+- The AI summary/impact score are added by the VM's next run (every 15 min in
+  market hours); only then does it show on the website. No push needed (DB only).
+- Kontan Insight (insight.kontan.co.id) is collected automatically on the VM
+  since 2026-11-20; regular Kontan/Detik/CNBC Indonesia/Bisnis.com are only
+  collected by the home PC (they block the VM).
+
 ## Do NOT do these
 
 - Do not set up any scheduled task / Task Scheduler job on this machine. Only the

@@ -99,6 +99,11 @@ guide hold everything Claude needs, and every session pulls the latest code.
 - Running the 15-minute news collector. Never set it up on the laptop — two
   copies double the database cost.
 
+**Important news on WhatsApp that isn't on the site yet?**
+Paste the link to Claude and say: `Add this article to the site: <link>`.
+It shows on the website after the server's next AI run (about 15 minutes in
+market hours).
+
 **Something went wrong / red error text?**
 Don't fix it yourself. Copy the message to Claude and ask:
 `What happened, in plain words, and is the data saved?`

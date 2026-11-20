@@ -46,3 +46,6 @@ Thumbs.db
 # ── Claude Code session files ──────────────────────────────────────────────────
 .claude/
 .env*
+
+# DB backups and run logs (local only)
+logs/

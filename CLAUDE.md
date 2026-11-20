@@ -48,8 +48,18 @@ Rules:
 - Flag numbers that look unusual (e.g. a huge flow or a big IHSG move) and ask
   the owner to confirm. They are sometimes real (Oct 7 2026 domestic ~32 T IDR
   and the Oct 16 2026 −11.57% crash were both real).
+- **The entry scripts only recompute TODAY's Fear & Greed row.** Whenever you
+  enter a date that is not today (e.g. several pasted days at once), afterwards:
+  1. `python -m backend.scripts.backup_table fear_greed_index`
+  2. `python -m backend.workers.compute_index --backfill --from <oldest entered date> --to <newest entered date>`
+  3. `python -m backend.workers.compute_index` (refreshes today's live row)
 - Finish by reporting the new Fear & Greed score, its label, and which
-  components moved the most.
+  components moved the most (read `components_json` of `fear_greed_index`:
+  a list of {id, label, score, raw_label}; compare with the previous day).
+- Breadth input: the owner pastes 5 numbers `a | b | c | d | e` (biggest losers
+  → biggest gainers); decline = a+b, stable = c, advance = d+e, total = sum (945 lately).
+- Weekend rows in `fear_greed_index` are written by the live run and are not
+  touched by `--backfill` (trading days only). That is expected.
 
 Fear & Greed labels: <25 Extreme Fear, <45 Fear, <55 Neutral, <75 Greed, ≥75 Extreme Greed.
 
@@ -71,3 +81,15 @@ Fear & Greed labels: <25 Extreme Fear, <45 Fear, <55 Neutral, <75 Greed, ≥75 E
 - Main article table is `articles` (Prisma model `news`).
 - Backend: Python 3.11 in `backend/` (workers + scripts). Frontend: Next.js 14 in `src/`.
 - Primary news ingester is a DigitalOcean VM; the website runs on Vercel.
+- The VM's SSH key (`~/.ssh/dailyihsg_do`) exists only on the home PC. From the
+  laptop you cannot deploy to the VM: commit + push the change and tell the
+  owner it must be copied to the VM from the home PC. Gemini enrichment also
+  runs only on the VM (the Gemini key is not in `.env.local`).
+- USD/IDR (`usdidr_daily`, feeds the "Rupiah Stress" component) comes from ECB
+  rates via `backend/workers/sync_usdidr.py` (VM cron, weekdays 18:05 UTC).
+  Yahoo IDR=X daily closes are often corrupt (3-4% below the day's low), so
+  Yahoo is only a guarded fallback. If Rupiah Stress swings wildly, compare
+  `usdidr_daily` with ECB, repair with `python -m backend.workers.sync_usdidr --days N`
+  (backup the table first), then backfill Fear & Greed.
+- Back up any table before bulk changes: `python -m backend.scripts.backup_table <table>`
+  (writes to `logs/`, which is gitignored).

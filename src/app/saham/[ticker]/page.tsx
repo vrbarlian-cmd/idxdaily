@@ -27,6 +27,8 @@ interface TopArticle {
 
 interface TickerSeo {
   ticker:          { id: string; symbol: string; name: string; sector: string | null };
+  count24h:        number;
+  sent24h:         SentCounts;
   count7d:         number;
   count30d:        number;
   sent7d:          SentCounts;
@@ -57,6 +59,7 @@ const getTickerSeo = cache(async (rawSymbol: string): Promise<TickerSeo | null> 
   const now       = Date.now();
   const cutoff30d = new Date(now - 30 * 24 * 60 * 60 * 1000);
   const cutoff7d  = new Date(now - 7  * 24 * 60 * 60 * 1000);
+  const cutoff24h = new Date(now - 24 * 60 * 60 * 1000);
 
   const rows = await prisma.tickerMention.findMany({
     where: buildMentionWhere(ticker.id, undefined, cutoff30d, null, true),
@@ -72,8 +75,8 @@ const getTickerSeo = cache(async (rawSymbol: string): Promise<TickerSeo | null> 
   }) ?? [];
 
   const empty = (): SentCounts => ({ BULLISH: 0, BEARISH: 0, NEUTRAL: 0 });
-  const sent7d = empty(), sent30d = empty();
-  let sum7 = 0, n7 = 0, sum30 = 0;
+  const sent24h = empty(), sent7d = empty(), sent30d = empty();
+  let sum7 = 0, n7 = 0, sum30 = 0, n24 = 0;
   let newestCreatedAt: Date | null = null, newestPublished: Date | null = null;
   const scored: TopArticle[] = [];
 
@@ -85,6 +88,7 @@ const getTickerSeo = cache(async (rawSymbol: string): Promise<TickerSeo | null> 
     sent30d[sent]++;
     sum30 += impact;
     if (a.publishedAt && a.publishedAt >= cutoff7d) { sent7d[sent]++; sum7 += impact; n7++; }
+    if (a.publishedAt && a.publishedAt >= cutoff24h) { sent24h[sent]++; n24++; }
     if (a.createdAt && (!newestCreatedAt || a.createdAt > newestCreatedAt)) newestCreatedAt = a.createdAt;
     if (a.publishedAt && (!newestPublished || a.publishedAt > newestPublished)) newestPublished = a.publishedAt;
     scored.push({ id: a.id, title: a.title, url: a.url, source: a.source, publishedAt: a.publishedAt, impact, sentiment: sent });
@@ -110,6 +114,8 @@ const getTickerSeo = cache(async (rawSymbol: string): Promise<TickerSeo | null> 
   const count30d = rows.length;
   return {
     ticker,
+    count24h:     n24,
+    sent24h,
     count7d:      n7,
     count30d,
     sent7d, sent30d,
@@ -122,6 +128,12 @@ const getTickerSeo = cache(async (rawSymbol: string): Promise<TickerSeo | null> 
   };
 });
 
+function majorityWord(c: SentCounts): string {
+  if (c.BULLISH > c.BEARISH && c.BULLISH >= c.NEUTRAL) return 'bullish';
+  if (c.BEARISH > c.BULLISH && c.BEARISH >= c.NEUTRAL) return 'bearish';
+  return 'netral';
+}
+
 function fmtWib(d: Date): string {
   return d.toLocaleString('id-ID', {
     timeZone: 'Asia/Jakarta', day: 'numeric', month: 'long', year: 'numeric',
@@ -131,22 +143,27 @@ function fmtWib(d: Date): string {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const symbol = (params?.ticker ?? '').toUpperCase();
-  const title  = `Berita & Sentimen Saham ${symbol} | DailyIHSG`;
+  // Matches what people search ("saham bumi hari ini", "bbca hari ini").
+  const title  = `Saham ${symbol} Hari Ini: Berita & Sentimen Terbaru | DailyIHSG`;
   let seo: TickerSeo | null = null;
   try { seo = await getTickerSeo(symbol); } catch (err) {
     console.error('[saham] generateMetadata failed:', err);
   }
   if (!seo) return { title, robots: { index: false, follow: true } };
 
-  const { ticker, count7d, sent7d, newestPublished, indexable } = seo;
-  const isFresh = !!newestPublished && Date.now() - newestPublished.getTime() < 24 * 60 * 60 * 1000;
-  const description = count7d > 0
-    ? `${count7d} berita saham ${ticker.symbol} (${ticker.name}) dalam 7 hari terakhir: ` +
-      `${sent7d.BULLISH} bullish, ${sent7d.BEARISH} bearish, ${sent7d.NEUTRAL} netral. ` +
-      (isFresh ? 'Ada berita baru hari ini. ' : '') +
-      'Ringkasan AI dan skor dampak di DailyIHSG.'
-    : `Berita dan sentimen saham ${ticker.symbol} (${ticker.name}). ` +
-      'Belum ada berita baru dalam 7 hari terakhir. Ringkasan AI dan skor dampak di DailyIHSG.';
+  const { ticker, count24h, sent24h, count7d, sent7d, indexable } = seo;
+  const mix7 = `${sent7d.BULLISH} bullish, ${sent7d.BEARISH} bearish, ${sent7d.NEUTRAL} netral`;
+  // Lead with the freshest fact — that is what earns the click.
+  const description =
+    count24h > 0
+      ? `Hari ini: ${count24h} berita baru saham ${ticker.symbol} (${ticker.name}), ` +
+        `mayoritas ${majorityWord(sent24h)}. 7 hari terakhir: ${count7d} berita (${mix7}). ` +
+        'Ringkasan AI dan skor dampak tiap berita.'
+    : count7d > 0
+      ? `${count7d} berita saham ${ticker.symbol} (${ticker.name}) dalam 7 hari terakhir: ${mix7}. ` +
+        'Ringkasan AI dan skor dampak tiap berita di DailyIHSG.'
+      : `Berita dan sentimen saham ${ticker.symbol} (${ticker.name}). ` +
+        'Belum ada berita baru dalam 7 hari terakhir. Ringkasan AI dan skor dampak di DailyIHSG.';
 
   return {
     title,
@@ -387,7 +404,10 @@ export default async function TickerPage({ params }: PageProps) {
         <div className="flex items-start gap-4 flex-wrap">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="font-mono text-3xl font-bold text-[#0f172a]">{tickerRow.symbol}</h1>
+              <h1 className="text-3xl font-bold text-[#0f172a]">
+                <span className="text-xl font-semibold text-[#6b7280] mr-2 align-middle">Saham</span>
+                <span className="font-mono align-middle">{tickerRow.symbol}</span>
+              </h1>
               <span className={`inline-flex items-center rounded-full px-3 py-1 text-sm font-medium border ${sentimentChipStyle}`}>
                 {dominantSentiment.charAt(0) + dominantSentiment.slice(1).toLowerCase()}
               </span>

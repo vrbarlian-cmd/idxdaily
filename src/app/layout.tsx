@@ -9,6 +9,7 @@ import { fetchMarketSnapshot } from '@/lib/marketData';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.dailyihsg.com'),
   title: 'DailyIHSG - Berita & Sentimen Pasar Indonesia',
   description: 'DailyIHSG: Agregator berita saham Indonesia dengan Fear & Greed Index, analisis AI, dan sentimen pasar real-time.',
   keywords: 'saham IDX, berita saham, sentimen, AI, Indonesia, IHSG, DailyIHSG',

@@ -7,6 +7,7 @@ import TrendingTickers     from '@/components/TrendingTickers';
 import AGradeNews          from '@/components/AGradeNews';
 import MacroMarketNews     from '@/components/MacroMarketNews';
 import HeroSearch          from '@/components/HeroSearch';
+import SahamTrending       from '@/components/SahamTrending';
 
 export const revalidate = 60;
 
@@ -43,7 +44,8 @@ export default async function Home() {
         {/* Row 3: Macro & Market News — full-width, near top, time-sensitive */}
         <MacroMarketNews />
 
-        {/* Row 4: Trending Tickers — full width */}
+        {/* Row 4: Saham Trending (24h, indexable tickers) + Trending Tickers (7d) */}
+        <SahamTrending />
         <TrendingTickers />
 
         {/* Row 5: High-Impact Stock News */}

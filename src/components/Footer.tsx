@@ -8,6 +8,9 @@ export default function Footer() {
       <div className="max-w-5xl mx-auto px-4 py-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-stone-500">
         <span>© {year} DailyIHSG. Bukan saran investasi.</span>
         <nav className="flex items-center gap-4 flex-wrap justify-center">
+          <Link href="/fear-greed" className="hover:text-stone-800 transition-colors">
+            Fear &amp; Greed
+          </Link>
           <Link href="/tentang" className="hover:text-stone-800 transition-colors">
             Tentang
           </Link>

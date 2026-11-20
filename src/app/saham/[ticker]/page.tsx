@@ -1,15 +1,175 @@
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { Suspense, cache } from 'react';
 import { prisma } from '@/lib/prisma';
 import TrendingTickers from '@/components/TrendingTickers';
 import TickerNewsFeed from '@/components/TickerNewsFeed';
 import { dedupArticles } from '@/lib/dedupArticles';
+import { buildMentionWhere } from '@/lib/mentionWhere';
+import { INDEX_MIN_ARTICLES_30D, SITE_URL, getTickerIndexStats } from '@/lib/tickerSeo';
 
 export const revalidate = 60;
 
 interface PageProps {
   params: { ticker: string };
+}
+
+// ── SEO data (shared by generateMetadata + page via React cache) ──────────────
+
+type Sent = 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+type SentCounts = Record<Sent, number>;
+
+interface TopArticle {
+  id: string; title: string; url: string | null; source: string;
+  publishedAt: Date | null; impact: number; sentiment: Sent;
+}
+
+interface TickerSeo {
+  ticker:          { id: string; symbol: string; name: string; sector: string | null };
+  count7d:         number;
+  count30d:        number;
+  sent7d:          SentCounts;
+  sent30d:         SentCounts;
+  avgImpact7d:     number | null;
+  avgImpact30d:    number | null;
+  weeklyAvg30d:    number;          // count30d / 30 * 7
+  newestCreatedAt: Date | null;     // newest non-SKIP article (any age)
+  newestPublished: Date | null;
+  top3:            TopArticle[];
+  indexable:       boolean;
+}
+
+function asSent(s: string | null | undefined): Sent {
+  return s === 'BULLISH' || s === 'BEARISH' ? s : 'NEUTRAL';
+}
+
+const getTickerSeo = cache(async (rawSymbol: string): Promise<TickerSeo | null> => {
+  const symbol = (rawSymbol ?? '').toUpperCase();
+  if (!symbol) return null;
+
+  const ticker = await prisma.ticker.findUnique({
+    where: { symbol },
+    select: { id: true, symbol: true, name: true, sector: true },
+  });
+  if (!ticker) return null;
+
+  const now       = Date.now();
+  const cutoff30d = new Date(now - 30 * 24 * 60 * 60 * 1000);
+  const cutoff7d  = new Date(now - 7  * 24 * 60 * 60 * 1000);
+
+  const rows = await prisma.tickerMention.findMany({
+    where: buildMentionWhere(ticker.id, undefined, cutoff30d, null, true),
+    select: {
+      sentiment: true, impactScore: true,
+      article: {
+        select: {
+          id: true, title: true, url: true, source: true, publishedAt: true,
+          createdAt: true, sentiment: true, impactScore: true,
+        },
+      },
+    },
+  }) ?? [];
+
+  const empty = (): SentCounts => ({ BULLISH: 0, BEARISH: 0, NEUTRAL: 0 });
+  const sent7d = empty(), sent30d = empty();
+  let sum7 = 0, n7 = 0, sum30 = 0;
+  let newestCreatedAt: Date | null = null, newestPublished: Date | null = null;
+  const scored: TopArticle[] = [];
+
+  for (const r of rows) {
+    const a = r.article;
+    if (!a) continue;
+    const sent   = asSent(r.sentiment ?? a.sentiment);
+    const impact = Number(r.impactScore ?? a.impactScore ?? 0) || 0;
+    sent30d[sent]++;
+    sum30 += impact;
+    if (a.publishedAt && a.publishedAt >= cutoff7d) { sent7d[sent]++; sum7 += impact; n7++; }
+    if (a.createdAt && (!newestCreatedAt || a.createdAt > newestCreatedAt)) newestCreatedAt = a.createdAt;
+    if (a.publishedAt && (!newestPublished || a.publishedAt > newestPublished)) newestPublished = a.publishedAt;
+    scored.push({ id: a.id, title: a.title, url: a.url, source: a.source, publishedAt: a.publishedAt, impact, sentiment: sent });
+  }
+
+  // No article in 30d → still show "Terakhir diperbarui" from the newest older one.
+  if (!newestCreatedAt) {
+    const older = await prisma.tickerMention.findFirst({
+      where: buildMentionWhere(ticker.id, undefined, null, null, true),
+      orderBy: { article: { createdAt: 'desc' } },
+      select: { article: { select: { createdAt: true, publishedAt: true } } },
+    });
+    newestCreatedAt = older?.article?.createdAt ?? null;
+    newestPublished = older?.article?.publishedAt ?? null;
+  }
+
+  const seen = new Set<string>();
+  const top3 = scored
+    .sort((x, y) => y.impact - x.impact || (y.publishedAt?.getTime() ?? 0) - (x.publishedAt?.getTime() ?? 0))
+    .filter(t => (seen.has(t.id) ? false : (seen.add(t.id), true)))
+    .slice(0, 3);
+
+  const count30d = rows.length;
+  return {
+    ticker,
+    count7d:      n7,
+    count30d,
+    sent7d, sent30d,
+    avgImpact7d:  n7 > 0 ? sum7 / n7 : null,
+    avgImpact30d: count30d > 0 ? sum30 / count30d : null,
+    weeklyAvg30d: (count30d / 30) * 7,
+    newestCreatedAt, newestPublished,
+    top3,
+    indexable:    count30d >= INDEX_MIN_ARTICLES_30D,
+  };
+});
+
+function fmtWib(d: Date): string {
+  return d.toLocaleString('id-ID', {
+    timeZone: 'Asia/Jakarta', day: 'numeric', month: 'long', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  }) + ' WIB';
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const symbol = (params?.ticker ?? '').toUpperCase();
+  const title  = `Berita & Sentimen Saham ${symbol} | DailyIHSG`;
+  let seo: TickerSeo | null = null;
+  try { seo = await getTickerSeo(symbol); } catch (err) {
+    console.error('[saham] generateMetadata failed:', err);
+  }
+  if (!seo) return { title, robots: { index: false, follow: true } };
+
+  const { ticker, count7d, sent7d, newestPublished, indexable } = seo;
+  const isFresh = !!newestPublished && Date.now() - newestPublished.getTime() < 24 * 60 * 60 * 1000;
+  const description = count7d > 0
+    ? `${count7d} berita saham ${ticker.symbol} (${ticker.name}) dalam 7 hari terakhir: ` +
+      `${sent7d.BULLISH} bullish, ${sent7d.BEARISH} bearish, ${sent7d.NEUTRAL} netral. ` +
+      (isFresh ? 'Ada berita baru hari ini. ' : '') +
+      'Ringkasan AI dan skor dampak di DailyIHSG.'
+    : `Berita dan sentimen saham ${ticker.symbol} (${ticker.name}). ` +
+      'Belum ada berita baru dalam 7 hari terakhir. Ringkasan AI dan skor dampak di DailyIHSG.';
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `${SITE_URL}/saham/${ticker.symbol}` },
+    robots: indexable ? { index: true, follow: true } : { index: false, follow: true },
+    openGraph: { title, description, url: `${SITE_URL}/saham/${ticker.symbol}`, siteName: 'DailyIHSG', locale: 'id_ID', type: 'website' },
+  };
+}
+
+function SentRow({ label, color, n7, n30 }: { label: string; color: string; n7: number; n30: number }) {
+  return (
+    <tr className="border-t border-[#f0ede8]">
+      <td className="py-1.5 pr-2">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
+          {label}
+        </span>
+      </td>
+      <td className="py-1.5 text-right tabular-nums font-medium text-[#0f172a]">{n7}</td>
+      <td className="py-1.5 text-right tabular-nums font-medium text-[#0f172a]">{n30}</td>
+    </tr>
+  );
 }
 
 function StatCard({
@@ -32,63 +192,7 @@ function StatCard({
   );
 }
 
-// ── Shared mention-query helper ───────────────────────────────────────────────
-
-function buildMentionWhere(
-  tickerId: string,
-  sentimentFilter: string | undefined,
-  dateGte: Date | null,
-  dateLt: Date | null,
-  includeMacro: boolean,
-) {
-  const dateFilter: Record<string, unknown> = {};
-  if (dateGte) dateFilter.gte = dateGte;
-  if (dateLt) dateFilter.lt = dateLt;
-  const hasDateFilter = Object.keys(dateFilter).length > 0;
-
-  const validSentiment =
-    !!sentimentFilter && ['BULLISH', 'BEARISH', 'NEUTRAL'].includes(sentimentFilter);
-
-  // Match-type branch: high/medium ticker matches OR (optionally) macro-impact mentions.
-  const matchTypeOr: Record<string, unknown>[] = [
-    { matchConfidence: { in: ['high', 'medium'] } },
-    ...(includeMacro ? [{ matchType: 'macro_impact' as const }] : []),
-  ];
-
-  // Sentiment branch — applied at the TOP level (AND) so it constrains BOTH
-  // ticker-match AND macro-impact rows. Previously it lived only inside the
-  // high/medium branch, so macro-impact mentions of any sentiment leaked through
-  // (e.g. Bearish macro articles appearing under the Neutral filter). Falls back
-  // to article.sentiment when the mention's own sentiment is null.
-  const sentimentAnd = validSentiment
-    ? [{
-        OR: [
-          { sentiment: sentimentFilter },
-          { sentiment: null, article: { sentiment: sentimentFilter } },
-        ],
-      }]
-    : [];
-
-  // INVARIANT: only show articles that have been enriched (aiSummary IS NOT NULL).
-  // Unenriched articles stay hidden until enrichment completes — they must never
-  // display with the DB-default NEUTRAL/5.0 placeholder values.
-  //
-  // INVARIANT: never show category='SKIP' articles. enrich.py's relevance
-  // pre-filter sets category=SKIP *and* a non-null placeholder aiSummary
-  // ("[filtered: not market relevant]") for articles it judges irrelevant —
-  // that placeholder passes the aiSummary-not-null check above, so this
-  // separate category exclusion is required or SKIP articles leak through.
-  return {
-    tickerId,
-    article: hasDateFilter
-      ? { publishedAt: { ...dateFilter, not: null as null }, aiSummary: { not: null }, category: { not: 'SKIP' } }
-      : { publishedAt: { not: null as null }, aiSummary: { not: null }, category: { not: 'SKIP' } },
-    AND: [
-      { OR: matchTypeOr },
-      ...sentimentAnd,
-    ],
-  };
-}
+// buildMentionWhere lives in @/lib/mentionWhere (shared with sitemap/trending).
 
 const MENTION_SELECT = {
   aiSummary:   true,
@@ -147,12 +251,34 @@ function sortMentions<T extends { matchType: string; impactScore: number | null;
 export default async function TickerPage({ params }: PageProps) {
   const symbol = params.ticker.toUpperCase();
 
-  const tickerRow = await prisma.ticker.findUnique({
-    where: { symbol },
-    select: { id: true, symbol: true, name: true, sector: true },
-  });
+  const seo = await getTickerSeo(symbol);
+  if (!seo) notFound();
+  const tickerRow = seo.ticker;
 
-  if (!tickerRow) notFound();
+  // Same-sector tickers that pass the index threshold (cached stats, no extra query).
+  const related = tickerRow.sector
+    ? (await getTickerIndexStats())
+        .filter(s => s.sector === tickerRow.sector && s.symbol !== tickerRow.symbol
+                  && s.count30d >= INDEX_MIN_ARTICLES_30D)
+        .sort((a, b) => b.count30d - a.count30d)
+        .slice(0, 5)
+    : [];
+
+  const breadcrumbLd = {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: [
+      { '@type': 'ListItem', position: 1, name: 'Beranda', item: SITE_URL },
+      { '@type': 'ListItem', position: 2, name: `Saham ${tickerRow.symbol}`, item: `${SITE_URL}/saham/${tickerRow.symbol}` },
+    ],
+  };
+
+  const mentionTrend =
+    seo.weeklyAvg30d > 0
+      ? seo.count7d >= seo.weeklyAvg30d * 1.2 ? 'lebih ramai dari biasanya'
+      : seo.count7d <= seo.weeklyAvg30d * 0.8 ? 'lebih sepi dari biasanya'
+      : 'sekitar rata-rata'
+      : null;
 
   // Date boundaries
   const now       = new Date();
@@ -191,13 +317,17 @@ export default async function TickerPage({ params }: PageProps) {
     const sent = (m.sentiment ?? m.article.sentiment) as keyof typeof sentCounts;
     if (sent in sentCounts) sentCounts[sent]++;
   }
-  const dominantSentiment = Object.entries(sentCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'NEUTRAL';
-
-  // Sentiment sub-label: show dominant sentiment's share of enriched articles
+  // Sentiment sub-label: show dominant sentiment's share of enriched articles.
+  // With no enriched articles there is no dominant sentiment (previously the
+  // all-zero sort picked BULLISH and showed "Bullish · 0% berita positif").
   const totalEnriched = sentCounts.BULLISH + sentCounts.BEARISH + sentCounts.NEUTRAL;
+  const dominantSentiment = totalEnriched > 0
+    ? Object.entries(sentCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'NEUTRAL'
+    : 'NEUTRAL';
   const dominantCount = sentCounts[dominantSentiment as keyof typeof sentCounts];
   const dominantPct   = totalEnriched > 0 ? Math.round((dominantCount / totalEnriched) * 100) : 0;
   const sentimentSub  =
+    totalEnriched === 0 ? 'Belum ada berita dalam 7 hari' :
     dominantSentiment === 'BULLISH' ? `${dominantPct}% berita positif dominan` :
     dominantSentiment === 'BEARISH' ? `${dominantPct}% berita negatif dominan` :
     `${dominantPct}% berita netral`;
@@ -268,6 +398,11 @@ export default async function TickerPage({ params }: PageProps) {
                 {tickerRow.sector}
               </span>
             )}
+            {seo.newestCreatedAt && (
+              <p className="text-xs text-[#9ca3af] mt-2">
+                Terakhir diperbarui: <time dateTime={seo.newestCreatedAt.toISOString()}>{fmtWib(seo.newestCreatedAt)}</time>
+              </p>
+            )}
           </div>
         </div>
 
@@ -318,11 +453,101 @@ export default async function TickerPage({ params }: PageProps) {
             </Suspense>
           </div>
 
-          {/* Sidebar: trending tickers */}
-          <div className="space-y-4">
+          {/* Sidebar: data summary + trending tickers */}
+          <div className="space-y-4 min-w-0">
+            <section className="bg-white border border-[#e5e2db] rounded-xl p-4">
+              <h2 className="text-sm font-bold text-[#0f172a] mb-3">Ringkasan Data {tickerRow.symbol}</h2>
+
+              {seo.count30d === 0 ? (
+                <p className="text-xs text-[#6b7280]">Belum ada berita {tickerRow.symbol} dalam 30 hari terakhir.</p>
+              ) : (
+                <>
+                  <table className="w-full text-xs text-[#6b7280]">
+                    <thead>
+                      <tr className="text-[10px] uppercase tracking-wider text-[#9ca3af]">
+                        <th className="text-left font-semibold pb-1">Sentimen</th>
+                        <th className="text-right font-semibold pb-1">7 hari</th>
+                        <th className="text-right font-semibold pb-1">30 hari</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <SentRow label="Bullish" color="#10b981" n7={seo.sent7d.BULLISH} n30={seo.sent30d.BULLISH} />
+                      <SentRow label="Bearish" color="#ef4444" n7={seo.sent7d.BEARISH} n30={seo.sent30d.BEARISH} />
+                      <SentRow label="Netral"  color="#f59e0b" n7={seo.sent7d.NEUTRAL} n30={seo.sent30d.NEUTRAL} />
+                    </tbody>
+                  </table>
+
+                  <dl className="mt-3 space-y-1.5 text-xs">
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-[#6b7280]">Rata-rata skor dampak</dt>
+                      <dd className="font-medium text-[#0f172a] tabular-nums">
+                        {seo.avgImpact7d != null ? seo.avgImpact7d.toFixed(1) : '—'} (7h) · {seo.avgImpact30d != null ? seo.avgImpact30d.toFixed(1) : '—'} (30h)
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-[#6b7280]">Berita 7 hari terakhir</dt>
+                      <dd className="font-medium text-[#0f172a] tabular-nums">{seo.count7d}</dd>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <dt className="text-[#6b7280]">Rata-rata per minggu (30 hari)</dt>
+                      <dd className="font-medium text-[#0f172a] tabular-nums">{seo.weeklyAvg30d.toFixed(1)}</dd>
+                    </div>
+                  </dl>
+                  {mentionTrend && (
+                    <p className="mt-2 text-[11px] text-[#9ca3af]">Pemberitaan minggu ini {mentionTrend}.</p>
+                  )}
+
+                  {seo.top3.length > 0 && (
+                    <div className="mt-4">
+                      <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[#9ca3af] mb-1.5">
+                        Dampak tertinggi (30 hari)
+                      </h3>
+                      <ol className="space-y-2">
+                        {seo.top3.map(t => (
+                          <li key={t.id} className="text-xs leading-snug">
+                            <span className="font-bold tabular-nums text-[#0f172a] mr-1">{t.impact.toFixed(1)}</span>
+                            {t.url ? (
+                              <a href={t.url} target="_blank" rel="noopener noreferrer nofollow" className="text-[#374151] hover:text-[#1a56db]">
+                                {t.title}
+                              </a>
+                            ) : (
+                              <span className="text-[#374151]">{t.title}</span>
+                            )}
+                            <span className="block text-[10px] text-[#9ca3af] mt-0.5">
+                              {t.source}{t.publishedAt ? ` · ${t.publishedAt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', timeZone: 'Asia/Jakarta' })}` : ''}
+                            </span>
+                          </li>
+                        ))}
+                      </ol>
+                    </div>
+                  )}
+                </>
+              )}
+
+              {related.length > 0 && (
+                <div className="mt-4 pt-3 border-t border-[#f0ede8]">
+                  <h3 className="text-[10px] font-semibold uppercase tracking-wider text-[#9ca3af] mb-1.5">
+                    Saham sektor {tickerRow.sector}
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {related.map(r => (
+                      <Link key={r.symbol} href={`/saham/${r.symbol}`}
+                        className="font-mono text-[11px] font-bold bg-[#f8f7f4] border border-[#e5e2db] hover:border-blue-300 hover:text-[#1a56db] rounded px-2 py-0.5 text-[#374151]">
+                        {r.symbol}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+
             <TrendingTickers currentTicker={tickerRow.symbol} />
           </div>
         </div>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }}
+        />
       </main>
     </div>
   );

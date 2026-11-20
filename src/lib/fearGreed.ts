@@ -344,7 +344,7 @@ async function computeMarketBreadth(): Promise<ComponentResult> {
 
 // ── Aggregation ──────────────────────────────────────────────────────────────
 
-function classify(score: number): string {
+export function classify(score: number): string {
   if (score < 25) return 'Extreme Fear';
   if (score < 45) return 'Fear';
   if (score < 55) return 'Neutral';

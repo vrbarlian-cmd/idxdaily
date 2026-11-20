@@ -54,6 +54,13 @@ export default function Header({ market }: HeaderProps) {
           <HeaderSearchConditional />
         </div>
 
+        {/* Main nav (desktop) */}
+        <nav className="hidden md:block flex-shrink-0">
+          <Link href="/fear-greed" className="text-sm font-semibold text-[#374151] hover:text-[#1a56db] transition-colors">
+            Fear &amp; Greed
+          </Link>
+        </nav>
+
         {/* Market pills */}
         {market && (
           <div className="hidden md:flex items-center divide-x divide-[#e5e2db] flex-shrink-0">
@@ -67,19 +74,24 @@ export default function Header({ market }: HeaderProps) {
         )}
       </div>
 
-      {/* Phones: compact market strip under the logo row */}
-      {market && (
-        <div className="md:hidden border-t border-[#f0ede8] bg-[#fbfaf8]">
-          <div className="px-4 h-8 flex items-center justify-center divide-x divide-[#e5e2db]">
-            <MarketPill
-              label="IHSG"
-              value={fmt(market.ihsgValue)}
-              change={market.ihsgChangePercent}
-            />
-            <MarketPill label="USD/IDR" value={fmt(market.usdIdr)} />
-          </div>
+      {/* Phones: nav link + compact market strip under the logo row */}
+      <div className="md:hidden border-t border-[#f0ede8] bg-[#fbfaf8]">
+        <div className="px-4 h-8 flex items-center justify-center divide-x divide-[#e5e2db]">
+          <Link href="/fear-greed" className="px-2 text-xs font-semibold text-[#1a56db] whitespace-nowrap">
+            Fear &amp; Greed
+          </Link>
+          {market && (
+            <>
+              <MarketPill
+                label="IHSG"
+                value={fmt(market.ihsgValue)}
+                change={market.ihsgChangePercent}
+              />
+              <MarketPill label="USD/IDR" value={fmt(market.usdIdr)} />
+            </>
+          )}
         </div>
-      )}
+      </div>
     </header>
   );
 }

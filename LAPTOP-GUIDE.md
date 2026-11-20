@@ -6,64 +6,52 @@ you only open the app and paste things.
 
 ---
 
-## Part 1 — One-time setup (do this only once per laptop)
+## Part 1 — One-time setup (ONE prompt, only once per laptop)
 
-1. **Install 3 programs** (download from their official sites, click Next → Next → Finish):
-   - **Git** — https://git-scm.com/download/win
-   - **Python 3.11** — https://www.python.org/downloads/release/python-3119/
-     (on the first install screen, tick **"Add python.exe to PATH"**)
-   - **Claude desktop app** — https://claude.ai/download (sign in with your account)
+Before you start, do just these 2 things by hand:
+1. Install the **Claude desktop app** (https://claude.ai/download) and sign in.
+2. Open the email you sent yourself and **download `dailyihsg-env.txt`**
+   (it lands in your **Downloads** folder).
 
-2. **Get the project onto the laptop.** Open the Claude app → **Code** tab →
-   choose your **Documents** folder → start a session and paste:
-
-   ```
-   Clone https://github.com/vrbarlian-cmd/idxdaily.git into this folder,
-   then install the Python requirements (pip install -r requirements.txt).
-   Tell me in plain words if anything fails.
-   ```
-
-3. **Add the password file.**
-   - Open the email you sent yourself with `dailyihsg-env.txt`, download it.
-   - Move it into the new **Documents\idxdaily** folder.
-   - Rename it to exactly **`.env.local`** (Windows may warn about changing the
-     extension — click Yes).
-   - Delete that email from **Sent**, **Inbox** and **Trash**.
-
-4. **First session in the project.** In the Claude app → **Code** → choose the
-   **idxdaily** folder → new session → paste the **First-time prompt** below.
-
-5. **If a browser window asks you to sign in to GitHub**, sign in with your usual
-   account. If Claude asks for a name/email "for git commits", give your name and
-   email. Both happen only once.
-
-### First-time prompt (paste once)
+Then: Claude app → **Code** tab → choose your **Documents** folder →
+**new session** → paste this ONE prompt, with today's IDX data under it:
 
 ```
-This is the DailyIHSG repo. I'm on my laptop (my home PC is off).
-First run `git pull origin main`, then read CLAUDE.md fully and follow it.
-Check that .env.local exists in this folder (don't print its contents) and
-that `pip install -r requirements.txt` is done; if anything is missing,
-tell me in plain words what to do.
+Set up DailyIHSG on this laptop, then enter today's data. I don't code,
+so explain anything you need from me in plain words.
 
-Then do my daily data entry. I'll paste the IDX data (IHSG close, domestic
-and foreign buy/sell in billion IDR, and breadth as a | b | c | d | e).
-For each date, oldest first:
-- foreign net = foreign buy - foreign sell
-- run set_foreign_flow (with --ihsg), set_domestic_flow, set_market_breadth
-- check every output for Traceback / Error / saved
-If any date is not today: back up fear_greed_index with backup_table, then
-run compute_index --backfill over those dates, then compute_index for today.
-Flag anything unusual and ask me before guessing.
-Finish with a table: date, IHSG, foreign net, breadth, F&G score, label,
-and which components moved most.
+1. Check that Git and Python 3.11 are installed. If not, install them
+   with winget (Git.Git and Python.Python.3.11) and tell me if I need
+   to click anything.
+2. Clone https://github.com/vrbarlian-cmd/idxdaily.git into this
+   Documents folder (if it already exists, just git pull origin main).
+3. Move dailyihsg-env.txt from my Downloads folder into the idxdaily
+   folder and rename it to .env.local. Never print its contents.
+4. In the idxdaily folder: pip install -r requirements.txt, then read
+   CLAUDE.md and LAPTOP-GUIDE.md fully and follow them from now on.
+5. Enter the IDX data I paste below following CLAUDE.md (oldest date
+   first; backfill if any date is not today), and finish with a table:
+   date, IHSG, foreign net, breadth, F&G score, label, and which
+   components moved most.
+
+[paste your IDX data here]
 ```
+
+During setup:
+- **If a browser window asks you to sign in to GitHub**, sign in with your
+  usual account. If Claude asks for a name/email "for git commits", give your
+  name and email. Both happen only once.
+- When it's done, **delete that email** from **Sent**, **Inbox** and **Trash**.
 
 ---
 
 ## Part 2 — Every day (the routine)
 
-1. Open the Claude app → **Code** → choose the **idxdaily** folder → **new session**.
+Use a **new session every day** (not the setup one): it starts fresh and fast,
+and CLAUDE.md gives it all the rules automatically.
+
+1. Open the Claude app → **Code** → choose the **idxdaily** folder
+   (Documents\idxdaily — not Documents) → **new session**.
 2. Paste **only your IDX data**, the same as always. Example:
 
    ```
